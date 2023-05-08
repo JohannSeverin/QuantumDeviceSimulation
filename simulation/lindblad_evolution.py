@@ -260,15 +260,17 @@ if __name__ == "__main__":
 
     pulse = ReadoutCosinePulse(
         system,
-        amplitude = 0.10,
-        frequency = np.linspace(5.82, 6.02, 20),
+        amplitude = np.linspace(0.01, 0.26, 25),
+        frequency = 5.975, #np.linspace(5.85, 6.02, 20),
         phase     = 0.0
     )
+
+    times = np.linspace(0, 50, 1000)
 
     experiment = LindbladExperiment(
         system = system,
         pulse = pulse,
-        times = np.linspace(0, 100, 1000),
+        times = times,
         states = states,
         running_states = False,
         running_exp_vals = [system.photon_number_operator()],
@@ -276,6 +278,22 @@ if __name__ == "__main__":
 
     results = experiment.run_experiments()
 
-    plt.plot(results["sweep_list"], results["exp_vals"][:, :, :].mean(axis = 2))
+
+    ### ANALYSIS #### 
+    plt.figure()
+    plt.title("Mean Photon Number vs. Frequency")
+    plt.plot(results["sweep_list"], results["exp_vals"][:, :, :].mean(axis = 2), label = ["$|0, 0\\rangle$", "$|1, 0\\rangle$", "$|2, 0\\rangle$"])
+    plt.xlabel("Frequency (GHz)")
+    plt.ylabel("Mean Photon Number")
+    plt.legend()
+
+    plt.figure()
+    plt.title("Dynamics of Most Resonant State")
+    for i in range(3):
+        most_resonant = np.argmax(results["exp_vals"][:, i, :].mean(axis = 1))
+        plt.plot(times, results["exp_vals"][most_resonant, i, :], label = f"$|{i}, 0\\rangle$ at {results['sweep_list'][most_resonant]:.3f} GHz")
+    plt.xlabel("Time (ns)")
+    plt.ylabel("Mean Photon Number")
+    plt.legend()
 
 
