@@ -1,0 +1,30 @@
+
+
+
+## Colors:
+axes.prop_cycle: cycler('color', ['5f0f40', '48a9a6', '243010', 'ffd447', 'af677c', 'ffbfb7', '873b5e'])
+
+
+## Plot style
+figure.figsize: 12, 8
+lines.linewidth: 2.5
+axes.spines.right: False
+axes.spines.top: False
+
+
+## Fontsizes
+font.size : 16
+
+axes.titleweight: bold
+
+
+#### Following is used to set individual sizes
+## axes.titlesize : 24
+## axes.labelsize : 20
+## lines.linewidth : 3
+## lines.markersize : 10
+## xtick.labelsize : 16
+## ytick.labelsize : 16
+
+
+
