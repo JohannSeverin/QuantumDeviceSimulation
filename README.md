@@ -43,7 +43,7 @@ The following classes are implemented:
     - [ ] Plotting of sweeps
   - [ ] IQ plots
 - [ ] General Optimization
-  - [ ] Enter reference frames in the System Class to simplify hamiltonian
+  - [ ] Enter reference frames in the System Class to simplify hamiltonian (maybe not possible in qutip since time dependence should be a scaler)
   - [ ] Dispersive approximation (should be written either as new system or wrapper for old system/pulse)
   - [ ] Write sweeps using multiprocessing
 - [ ] Tidy up 

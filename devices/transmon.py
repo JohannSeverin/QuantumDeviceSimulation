@@ -5,18 +5,11 @@ from scipy.sparse import diags, csr_matrix
 from scipy.sparse.linalg import eigsh
 
 
+from devices.device import Device
 
-class Transmon:
+class Transmon(Device):
 
-    def __init__(self):
-        """
-        A Container for variables for a transmon. 
-
-        The transmon can be intilized in two ways. Either from device params where it is simulated for EC, EJ in a discrete basis n. 
-        The other option is to take it from the calibrated parameters, where a given frequency and anharmonicity can be used.
-        """
-
-    def from_device_parameters(self, EC, EJ, n_cutoff, ng, levels = 3, T1 = None):
+    def __init__(self, EC, EJ, n_cutoff, ng, levels = 3, T1 = None):
         """
         Simulate transmon from device parameters.
 
@@ -29,14 +22,36 @@ class Transmon:
 
         levels : int : The number of levels to carry over in the reduced hamiltonian        
         """
-        self.levels = levels
-        self.T1     = T1
+        self.param_type = "device_params"
+
+        self.parameters = {
+            "EC"        : EC * 2 * np.pi,
+            "EJ"        : EJ * 2 * np.pi,
+            "ng"        : ng,
+            "T1"        : T1,
+        }
+
+        self.levels     = levels
+        self.n_cutoff   = n_cutoff
+
+        self.update_methods = [self.set_operators, self.set_dissipators]
+
+        super().__init__()
+
+    def set_operators(self):
+        """
+        Set the operators used for dynamics. Everything changeable will be in the self.parameters dictionary.
+        """
+        # Unpack parameters
+        EC          = self.parameters["EC"]
+        EJ          = self.parameters["EJ"]
+        ng          = self.parameters["ng"]
 
         # Define basis
-        n_matrix = diags(np.arange(-n_cutoff, n_cutoff + 1) - ng, 0, shape = (2 * n_cutoff + 1, 2 * n_cutoff + 1))
+        n_matrix = diags(np.arange(-self.n_cutoff, self.n_cutoff + 1) - ng, 0, shape = (2 * self.n_cutoff + 1, 2 * self.n_cutoff + 1))
 
         # Define the flux operators
-        exp_i_flux = diags(np.ones(2 * n_cutoff), offsets = -1)
+        exp_i_flux = diags(np.ones(2 * self.n_cutoff), offsets = -1)
         cos_flux   = (exp_i_flux.getH() + exp_i_flux) / 2 
         
         # Calculate energy
@@ -46,7 +61,7 @@ class Transmon:
         H = kinetic + potential
 
         # Diagonalize
-        eigenvalues, eigenvectors = eigsh(H, k = levels, which = 'SA')
+        eigenvalues, eigenvectors = eigsh(H, k = self.levels, which = 'SA')
 
         # Calculate charge matrix
         charge_matrix = eigenvectors.conj().T @ n_matrix @ eigenvectors
@@ -56,23 +71,18 @@ class Transmon:
         self.hamiltonian    = qutip.Qobj(diags(eigenvalues))
         self.charge_matrix  = qutip.Qobj(csr_matrix(charge_matrix)) 
 
-    
-
-        return self
-
-
-    def from_calibrated_parameters(self, frequencies, charge_matrix = None):
+    def set_dissipators(self):
         """
-        Simulate transmno from calibrated parameters.
-
-        Parameters
-        ----
-        frequencies: array float : The frequency of the transmon. This will be the diagonal of the hamiltonian.
-        charge_matrix: array (d x d) array: The matrix elements of the charge matrix: <i|n|j>. This is used for interaction with the resonator 
+        Set the dissipators used for dynamics. Everything changeable will be in the self.parameters dictionary.
         """
-        raise NotImplementedError
+        # Unpack parameters
+        T1 = self.parameters["T1"]
 
-
+        # Set the dissipator
+        if T1 is not None:
+            self.dissipators = [np.sqrt(1 / T1) * qutip.destroy(self.levels)]
+        else:
+            self.dissipators = []
 
 
 if __name__ == '__main__':
@@ -80,6 +90,6 @@ if __name__ == '__main__':
     n_cutoff    = 15
     EJ          = 15     * 2 * np.pi # h GHz
     EC          = EJ / 25
+    T1          = np.linspace(0.1, 10, 10)
 
-    system = Transmon()
-    system.from_device_parameters(EC, EJ, n_cutoff, 0.0, levels = 4)
+    system = Transmon(EC, EJ, n_cutoff, 0.0, levels = 4, T1 = T1)

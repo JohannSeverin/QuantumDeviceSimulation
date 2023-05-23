@@ -183,12 +183,70 @@ class LindbladExperiment:
         return results
 
     def run_double_sweep(self):
+        sweep_param_0, sweep_param_1 = [key for key, value in self.sweep_parameter.items() if value]
+        sweep_list_0, sweep_list_1   = self.pulse_arguments[sweep_param_0], self.pulse_arguments[sweep_param_1]
+
+        # Create dict for results
+        results = {
+            "sweep_param": (sweep_param_0, sweep_param_1),
+            "sweep_list": (sweep_list_0, sweep_list_1)
+        }
+
+        if self.final_state:
+            results["final_state"]      = []
+        if self.running_states:
+            results["running_states"]   = []
+        if self.running_exp_vals:
+            results["exp_vals"]         = []
+        
+        data_points = len(sweep_list_0) * len(sweep_list_1)
+        pbar = tqdm(total = int(data_points), desc = "Sweeping")
+        pbar.update(0)
+       
+        for value_param_0 in sweep_list_0:
+
+            results_sweep_param_0 = {key: [] for key in results.keys()}
+
+            for value_param_1 in sweep_list_1:
+                # Set new value
+                self.pulse_arguments[sweep_param_0] = value_param_0
+                self.pulse_arguments[sweep_param_1] = value_param_1
+
+                # Run single experiment with updated sweep param
+                single_experiment_result = self.run_single_experiment()
+                
+                # Store results
+                if self.final_state:
+                    results_sweep_param_0["final_state"].append(single_experiment_result["final_state"])
+                if self.running_states:
+                    results_sweep_param_0["running_states"].append(single_experiment_result["running_states"])
+                if self.running_exp_vals:
+                    results_sweep_param_0["exp_vals"].append(single_experiment_result["exp_vals"])
+
+                pbar.update(1)
+
+            # Propagate results to main dict
+            for key in results.keys():
+                if key in ["final_state", "running_states", "exp_vals"]:
+                    results[key].append(np.array(results_sweep_param_0[key]))
+
+        pbar.close()        
+        return results
+
+
+
         raise NotImplementedError("Double sweeps are not yet supported")
 
     def simulate_one_configuration(self, state, args):
         """
         Simulate the evolution of the system in the interval given in times
         """
+        if self.time_dependent_hamitonian is None:
+            H = self.time_independent_hamiltonian
+        elif isinstance(self.time_dependent_hamiltonian, list):
+            H = [self.time_independent_hamiltonian] + self.time_dependent_hamiltonian
+
+        
         results = mesolve(
             H = [self.time_independent_hamiltonian, self.time_dependent_hamiltonian],
             rho0 = state,
@@ -228,14 +286,17 @@ class LindbladExperiment:
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     plt.style.use("../analysis/standard_plot_style.mplstyle")
-    
-    import sys
+
+    experiment_name = "test"
+    experiment_path = "/mnt/c/Users/johan/OneDrive/Skrivebord/QDS_data/dump"
+
+    import sys, pickle, os 
     sys.path.append("..")
     
     from devices.resonator      import Resonator
     from devices.transmon       import Transmon
-    from devices.basic_system   import QubitResonatorSystem
-    from devices.pulses         import ReadoutCosinePulse
+    from devices.pulses         import ReadoutCosinePulse, DispersiveReadoutCosinePulse
+    from devices.basic_system   import QubitResonatorSystem, DispersiveQubitResonatorSystem
 
     qubit = Transmon().from_device_parameters(
         EC = 15 * 2 * np.pi / 25, 
@@ -250,18 +311,18 @@ if __name__ == "__main__":
         levels = 10
     )
 
-    system = QubitResonatorSystem(
+    system = DispersiveQubitResonatorSystem(
         qubit = qubit, 
         resonator = resonator, 
-        coupling_strength = 0.250 * 2 * np.pi
+        coupling_strength = 0.250
     )
 
-    states = system.get_states(qubit_states = [0, 1, 2], resonator_states = 0)
+    states = system.get_states(qubit_states = 0, resonator_states = 0)
 
-    pulse = ReadoutCosinePulse(
+    pulse = DispersiveReadoutCosinePulse(
         system,
-        amplitude = np.linspace(0.01, 0.26, 25),
-        frequency = 5.975, #np.linspace(5.85, 6.02, 20),
+        amplitude = 0.10,
+        frequency = 6.00,
         phase     = 0.0
     )
 
@@ -278,22 +339,9 @@ if __name__ == "__main__":
 
     results = experiment.run_experiments()
 
+    with open(os.path.join(experiment_path, experiment_name + ".pkl"), "wb") as file:
+        pickle.dump(results, file)
 
-    ### ANALYSIS #### 
-    plt.figure()
-    plt.title("Mean Photon Number vs. Frequency")
-    plt.plot(results["sweep_list"], results["exp_vals"][:, :, :].mean(axis = 2), label = ["$|0, 0\\rangle$", "$|1, 0\\rangle$", "$|2, 0\\rangle$"])
-    plt.xlabel("Frequency (GHz)")
-    plt.ylabel("Mean Photon Number")
-    plt.legend()
-
-    plt.figure()
-    plt.title("Dynamics of Most Resonant State")
-    for i in range(3):
-        most_resonant = np.argmax(results["exp_vals"][:, i, :].mean(axis = 1))
-        plt.plot(times, results["exp_vals"][most_resonant, i, :], label = f"$|{i}, 0\\rangle$ at {results['sweep_list'][most_resonant]:.3f} GHz")
-    plt.xlabel("Time (ns)")
-    plt.ylabel("Mean Photon Number")
-    plt.legend()
-
-
+    plt.plot(times, results["exp_vals"])
+    
+    
