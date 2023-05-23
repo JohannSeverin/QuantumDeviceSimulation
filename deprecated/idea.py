@@ -13,7 +13,7 @@ from devices.resonator      import Resonator
 from devices.transmon       import Transmon
 from devices.pulses         import ReadoutCosinePulse
 
-from simulation.lindblad_evolution import LindbladExperiment
+from deprecated.lindblad_evolution import LindbladExperiment
 
 
 system = QubitResonatorSystem(

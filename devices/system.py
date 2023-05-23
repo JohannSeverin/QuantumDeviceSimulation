@@ -1,7 +1,7 @@
 import numpy as np
 
 import qutip
-from qutip import tensor, basis
+from qutip import tensor, basis, Qobj
 
 class System:
     """
@@ -105,11 +105,20 @@ class QubitResonatorSystem(System):
         self.system_parameters = {"coupling": coupling_strength * 2 * np.pi}
 
         # Set methods to be updated
-        self.update_methods = [self.set_opreators]
+        self.update_methods = [self.set_operators, self.set_dissipators]
 
         super().__init__()
-
-    def set_opreators(self):
+    
+    def set_dissipators(self):
+        qubit_dissipators       = self.devices["qubit"].dissipators
+        qubit_dissipators       = [tensor(qubit_dissipators[i], qutip.qeye(self.devices["resonator"].levels)) for i in range(len(qubit_dissipators))]
+        
+        resonator_dissipators   = self.devices["resonator"].dissipators
+        resonator_dissipators   = [tensor(qutip.qeye(self.devices["qubit"].levels), resonator_dissipators[i]) for i in range(len(resonator_dissipators))]
+        
+        self.dissipators = qubit_dissipators + resonator_dissipators
+        
+    def set_operators(self):
         # devices
         qubit           = self.devices["qubit"]
         resonator       = self.devices["resonator"]
@@ -162,3 +171,115 @@ class QubitResonatorSystem(System):
         return tensor(qutip.num(self.devices["qubit"].levels), qutip.qeye(self.devices["resonator"].levels))
 
 
+
+class DispersiveQubitResonatorSystem(System):
+    """
+    Corresponding to QubitResonatorSystem but with the dispersive approximation.
+
+    Instead of drive, 
+    """
+
+    def __init__(self, qubit, resonator, drive_frequency, drive_amplitude, coupling_strength):
+        """
+        Corresponding to QubitResonatorSystem but with the dispersive approximation.
+
+        Instead of drive, 
+        """
+        self.devices = {
+            "qubit": qubit,
+            "resonator": resonator
+        }
+
+        # Set parameters
+        self.system_parameters = {
+            "coupling": coupling_strength,
+            "drive_frequency": drive_frequency,
+            "drive_amplitude": drive_amplitude
+        }
+
+        # Set methods to be updated
+        self.update_methods = [self.set_operators, self.set_dissipators]
+
+        super().__init__()
+    
+    def set_dissipators(self):
+        qubit_dissipators       = self.devices["qubit"].dissipators
+        qubit_dissipators       = [tensor(qubit_dissipators[i], qutip.qeye(self.devices["resonator"].levels)) for i in range(len(qubit_dissipators))]
+        
+        resonator_dissipators   = self.devices["resonator"].dissipators
+        resonator_dissipators   = [tensor(qutip.qeye(self.devices["qubit"].levels), resonator_dissipators[i]) for i in range(len(resonator_dissipators))]
+        
+        self.dissipators = qubit_dissipators + resonator_dissipators
+
+    def set_operators(self):
+        # devices
+        qubit           = self.devices["qubit"]
+        resonator       = self.devices["resonator"]
+
+        # system parameters
+        drive_frequency = self.parameters["system"]["drive_frequency"]
+        drive_amplitude = self.parameters["system"]["drive_amplitude"]
+
+        dispersive_shifts = self.dispersive_shift()
+
+        # Time independent hamiltonian
+        Omega           = 2 * np.pi * (resonator.parameters["frequency"] - drive_frequency) 
+        H_0_resonator   = Omega * tensor(qutip.qeye(qubit.levels), resonator.a_dag * resonator.a)
+
+        dipsersive_operator  = Qobj(np.diag(dispersive_shifts))
+        H_int                = tensor(dipsersive_operator, resonator.a_dag * resonator.a)
+
+        H_drive         = drive_amplitude * tensor(qutip.qeye(qubit.levels), resonator.a_dag + resonator.a)
+
+        self.hamiltonian = H_0_resonator + H_int + H_drive
+
+        self.hamiltonian_t = None
+
+    def dispersive_shift(self):
+        qubit           = self.devices["qubit"]
+        frequency       = 2 * np.pi * self.devices["resonator"].parameters["frequency"]
+        coupling        = self.parameters["system"]["coupling"]
+
+        # Calculate dispersive shifts
+        # Multi qubit shifts
+        g_squared_matrix    = coupling ** 2 * qubit.charge_matrix.full() ** 2
+    
+        omega_ij_matrix     = np.expand_dims(qubit.hamiltonian.diag(), 1) - np.expand_dims(qubit.hamiltonian.diag(), 0)
+        
+        chi_matrix = g_squared_matrix * (1 / (omega_ij_matrix - frequency) + 1 / (omega_ij_matrix + frequency)) 
+
+        # The dispersive shifts
+        dispersive_shifts = chi_matrix.sum(axis = 1)
+
+        return dispersive_shifts
+
+    def get_states(self, qubit_states = 0, resonator_states = 0):
+            # Only integers
+            if isinstance(qubit_states, int) and isinstance(resonator_states, int):        
+                qubit       = basis(self.devices["qubit"].levels, qubit_states)
+                resonator   = basis(self.devices["resonator"].levels, resonator_states)
+                return tensor(qubit, resonator)
+            
+            # Integer and list of integers
+            elif isinstance(qubit_states, int) and isinstance(resonator_states, list):
+                qubit       = basis(self.devices["qubit"].levels, qubit_states)
+                resonator_states = [basis(self.devices["resonator"].levels, state) for state in resonator_states]
+                return [tensor(qubit, resonator) for resonator in resonator_states]
+            
+            # List of integers and integer
+            elif isinstance(qubit_states, list) and isinstance(resonator_states, int):
+                qubit_states = [basis(self.devices["qubit"].levels, state) for state in qubit_states]
+                resonator   = basis(self.devices["resonator"].levels, resonator_states)
+                return [tensor(qubit, resonator) for qubit in qubit_states]
+
+            # List of integers
+            elif len(qubit_states) == len(resonator_states):
+                qubits_states = [basis(self.devices["qubit"].levels, state) for state in qubit_states]
+                resonator_states = [basis(self.devices["resonator"].levels, state) for state in resonator_states]
+                return [tensor(qubit, resonator) for qubit, resonator in zip(qubits_states, resonator_states)]
+
+    def photon_number_operator(self):
+        return tensor(qutip.qeye(self.devices["qubit"].levels), self.devices["resonator"].a_dag * self.devices["resonator"].a)
+    
+    def qubit_state_operator(self):
+        return tensor(qutip.num(self.devices["qubit"].levels), qutip.qeye(self.devices["resonator"].levels))

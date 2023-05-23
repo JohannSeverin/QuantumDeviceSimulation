@@ -16,24 +16,25 @@ The following classes are implemented:
 - **Lindblad Experiment** is used as a playgound to make the general infrastructure for the experiment. This should pass sweepable quantities along to the pulse class to make a list of experiments to run for different initials states. The results are the stored. At the moment sweeps over 1 parameters is supported along with the ability to do each experiment for different initial states.
 
 # Progress - Coding:
-- [ ] Create classes to model the devices
+- [x] Create classes to model the devices
   - [ ] Qubit Class
     - [x] Transmon from device parameters
     - [ ] General Qubit from calibration parameters
   - [x] Resonator Class
-  - [ ] System Class (coupling the two together)
+  - [x] System Class (coupling the two together)
     - [x] Simpel system with qubit and resonator 
   - [ ] Pulse Class
     - [x] Cosine Square Pulse
-- [ ] Create classes to model experiments using different simulation framework
-  - [ ] Simulation Class
+- [x] Create classes to model experiments using different simulation framework
+  - [X] Simulation Class
     - [x] Handel input parameters
       - [x] single
       - [x] 1d sweep
-      - [ ] 2d sweep
+      - [x] 2d sweep
     - [x] Handel output results
-    - [ ] Convert to parent class
-  - [ ] Unitary (for simulating the Schrodinger equation)
+    - [x] Convert to parent class
+    - [ ] Proper output data structure
+  - [x] Unitary (for simulating the Schrodinger equation)
   - [ ] Lindblad Simulations (for simulating the master equation) 
   - [ ] Monte Carlo Simulations (might speed up Lindblad simulation for some cases)
   - [ ] Stochastic Simulations (for simulating backaction and measurement)
@@ -60,7 +61,7 @@ The following classes are implemented:
 
 # Next on List - Physics:
 - [ ] Punchout Plot (amplitude - frequency scan)
-  - [ ] Implement 2d sweep
+  - [x] Implement 2d sweep
   - [ ] Some hours of of running code
 - [ ] Zeno Effects
   - [ ] Stochastic Simulations

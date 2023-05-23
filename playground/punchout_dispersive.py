@@ -13,7 +13,7 @@ sys.path.append("..")
 # Load devices/system
 from devices.device import Resonator, Transmon
 from devices.pulses import ReadoutCosinePulse
-from devices.system import QubitResonatorSystem
+from devices.system import DispersiveQubitResonatorSystem
 
 # Load Simulation Experiment
 from simulation.experiment import SchroedingerExperiment, LindbladExperiment
@@ -24,25 +24,23 @@ qubit = Transmon(
     EC = 15 / 25,  # h GHz
     EJ = 15 , 
     n_cutoff = 15,  
-    levels = 3,
+    levels = 4,
     ng = 0.0
 )
 resonator = Resonator(
     6.02,
-    levels = 10,
-    kappa  = 0.020
+    levels = 15,
+    kappa  = 0.050
 )
 
-## Define Pulse
-readout_pulse = ReadoutCosinePulse(
-    frequency = np.linspace(5.92, 6.00, 5), # SCANNING THESE TWO PARAMETERS
-    amplitude = np.linspace(0.00, 1.00, 5), # SCANNING THESE TWO PARAMETERS
-    phase     = 0.0
-)
 
-## Combine to system
-coupling_strength       = 2 * np.pi * 0.250
-system = QubitResonatorSystem(qubit, resonator, resonator_pulse = readout_pulse, coupling_strength = coupling_strength)
+system = DispersiveQubitResonatorSystem(
+    qubit, 
+    resonator,
+    drive_frequency     = np.linspace(5.92, 6.02, 15),
+    drive_amplitude     = np.linspace(0.00, 0.25, 15),
+    coupling_strength   = 2 * np.pi * 0.250
+)
 
 # Create experiment
 ground_state    = system.get_states(0, 0)
