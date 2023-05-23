@@ -7,14 +7,11 @@ from experiment import SimulationExperiment
 
 
 class SchrodingerExperiment(SimulationExperiment):
-
-
     def __init__(self, system, states, times, expectation_opreators = None, store_states = False, only_store_final = False):
         self.system = system
         
         super().__init__(system, times, states, expectation_operators = expectation_opreators, store_states = store_states, only_store_final = only_store_final)
     
-
     def simulate(self, state):
         """
         Simulate the system.
@@ -51,13 +48,13 @@ if __name__ == "__main__":
 
     qubit = Transmon(EC, EJ, n_cutoff, 0.0, levels = 4)
 
-    resonator_states        = 10
+    resonator_states        = 20
     resonator_frequency     = 6.02  # GHz
 
     resonator = Resonator(resonator_frequency, levels = resonator_states)
 
-    amplitude   = 0.1  
-    frequency   = 6.02 * np.linspace(0.9, 1.1, 40) 
+    amplitude   = 0.1
+    frequency   = 6.02 * np.linspace(0.98, 1.02, 50)
     phase       = 0.0
 
     readout_pulse = ReadoutCosinePulse(frequency, amplitude, phase)
@@ -83,5 +80,8 @@ if __name__ == "__main__":
     result = experiment.run()
     
     import matplotlib.pyplot as plt 
+    
     plt.plot(result["sweep_list"], result["exp_vals"][:, 0])
     plt.plot(result["sweep_list"], result["exp_vals"][:, 1])
+    
+    

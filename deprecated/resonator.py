@@ -19,7 +19,7 @@ class Resonator(Device):
         levels: int: The size of the hilbert space for the resonator
         """
         self.parameters = {
-            "frequency" : frequency * 2 * np.pi,
+            "frequency" : frequency,
             "kappa"     : kappa
         }
 

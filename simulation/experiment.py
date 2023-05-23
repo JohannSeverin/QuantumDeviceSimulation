@@ -5,7 +5,9 @@ from tqdm import tqdm
 
 
 class SimulationExperiment:
-
+    """
+    Parent class for simulation of experiments. This class handles data management, sweeps and data storage.
+    """
     def __init__(self, system, times, states, expectation_operators = None, store_states = False, only_store_final = False):
         # Load the variables into the class
         self.times  = times
@@ -241,9 +243,54 @@ class SimulationExperiment:
             
         return np.array(list_of_expvals)
     
-    # def exp_vals(self, list_of_states, operators):
-    #     raise NotImplementedError("This method should be implemented in the subclass")
+             
+
+class SchroedingerExperiment(SimulationExperiment):
+    """
+    Experiment for solving the Schrodinger equation for a quantum device system. 
+    """
+
+    def __init__(self, system, states, times, expectation_opreators = None, store_states = False, only_store_final = False):
+        self.system = system
+        
+        super().__init__(system, times, states, expectation_operators = expectation_opreators, store_states = store_states, only_store_final = only_store_final)
+    
+    def simulate(self, state):
+        """
+        Simulate the system.
+        """
+        H_0 = self.system.hamiltonian
+
+        if self.system.hamiltonian_t:
+            H_1 = self.system.hamiltonian_t
+            H   = [H_0, H_1]
+        else:
+            H = H_0
+
+        return qutip.sesolve(
+            H,
+            psi0    = state,
+            tlist   = self.times,
+            options = self.options
+        )
+
+
+
+class LindbladExperiment(SimulationExperiment):
+    """
+    This simulation class also takes dissipation into account. It is based on the Lindblad master equation.
+    """
+    
+    def __init__(self, system, states, times, expectation_opreators = None, store_states = False, only_store_final = False):
+        raise NotImplementedError("This class is not yet implemented")
     
 
-
-             
+class StochasticExperiment(SimulationExperiment):
+    """
+    This simulation class also takes dissipation into account but also measurement backaction. 
+    It is based on the stochastic master equation and can be combined with NTraj keyword to create multiple simulations
+    as well 
+    """
+    
+    def __init__(self, system, states, times, expectation_opreators = None, store_states = False, only_store_final = False):
+        raise NotImplementedError("This class is not yet implemented")
