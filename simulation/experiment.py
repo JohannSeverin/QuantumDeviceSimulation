@@ -6,6 +6,7 @@ from tqdm import tqdm
 import pickle
 
 
+
 class SimulationExperiment:
     """
     Parent class for simulation of experiments. This class handles data management, sweeps and data storage.
@@ -38,6 +39,17 @@ class SimulationExperiment:
 
         self.save_path = save_path
 
+        self.results = SimulationResults(
+            number_of_sweeps  = self.number_of_sweeps, 
+            number_of_states  = self.number_of_states,
+            number_of_expvals = len(self.expectation_operators),
+            sweep_params      = list(self.sweep_parameters.values()),
+            times             = self.times,
+            store_states      = self.store_states,
+            only_store_final  = self.only_store_final,
+            save_path         = self.save_path
+        )
+
     def simulate(self, state):
         raise NotImplementedError("This method should be implemented in the subclass")
 
@@ -59,8 +71,13 @@ class SimulationExperiment:
         
         if self.save_path:
             self.save_results(results)
-
-        return results
+        
+        if self.store_states:
+            self.results.states = results["states"]
+        if self.expectation_operators:
+            self.results.exp_vals = results["exp_vals"]
+        
+        return self.results
 
     def run_single_experiment(self):
         """
@@ -131,7 +148,9 @@ class SimulationExperiment:
                 sweep_list  = self.system.sweep_list[sweep_param]
             else:
                 sweep_list = self.system.devices[device].sweep_list[sweep_param]
-        
+
+            self.results.sweep_lists = sweep_list
+
         # Create dict for results
         results = {
             "sweep_device": sweep_device,
@@ -196,6 +215,8 @@ class SimulationExperiment:
             "sweep_param":  [t[1] for t in sweep_tuples],
             "sweep_list":   [t[2] for t in sweep_tuples],
         }
+
+        self.results.sweep_lists = [t[2] for t in sweep_tuples]
 
         outer, inner = sweep_tuples
     
@@ -273,7 +294,83 @@ class SimulationExperiment:
         """
         with open(self.save_path, "wb") as f:
             pickle.dump(results, f)
-             
+
+class SimulationResults:
+    """
+    Container for results from a simulation experiment.
+    """
+    def __init__(self, number_of_sweeps, number_of_states, sweep_lists = None, sweep_params = None,  store_states = False, number_of_expvals = False, only_store_final = False, save_path = None, **kwargs):
+        
+        # Store meta stats for defining the result container
+        self.number_of_sweeps   = number_of_sweeps
+        self.sweep_params       = sweep_params
+        self.sweep_lists        = sweep_lists
+        self.number_of_states   = number_of_states
+        self.store_states       = store_states
+        self.number_of_expvals  = number_of_expvals
+        self.only_store_final   = only_store_final
+        self.save_path          = save_path
+        
+        # Set additional attributes
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+        
+        # Create empty lists for storing the results
+        self.states             = np.array([])
+        self.exp_vals           = np.array([])
+
+        # Create list for describing the dimensions of the results
+        self.create_descriptions()
+
+
+    def create_descriptions(self):
+        """
+        Create a description of the results.
+        """
+        if self.store_states:
+            state_descriptions      = ["state_dim1", "state_dim2"]
+            
+            if self.number_of_sweeps > 1:
+                state_descriptions.append(self.sweep_params[0])
+                state_descriptions.append(self.sweep_params[1])
+            
+            elif self.number_of_sweeps == 1:
+                state_descriptions.append(self.sweep_params[0])
+
+            if self.number_of_states > 1:
+                state_descriptions.append("initial_states")
+            
+            if not self.only_store_final:
+                state_descriptions.append("time")
+            
+            self.state_descriptions = state_descriptions
+
+        if self.number_of_expvals > 0:
+            exp_val_descriptions    = []
+
+            if self.number_of_sweeps > 1:
+                exp_val_descriptions.append(self.sweep_params[0][0])
+                exp_val_descriptions.append(self.sweep_params[1][0])
+            elif self.number_of_sweeps == 1:
+                exp_val_descriptions.append(self.sweep_params[0][0])
+
+            if self.number_of_states > 1:
+                exp_val_descriptions.append("initial_states")
+            
+            if not self.only_store_final:
+                exp_val_descriptions.append("time")
+
+            if self.number_of_expvals > 1:
+                exp_val_descriptions.append("exp_vals")
+
+
+            self.exp_val_descriptions = exp_val_descriptions
+
+
+
+
+
+
 class SchroedingerExperiment(SimulationExperiment):
     """
     Experiment for solving the Schroedinger equation for a quantum device system. 

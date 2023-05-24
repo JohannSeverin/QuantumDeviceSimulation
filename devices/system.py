@@ -102,7 +102,7 @@ class QubitResonatorSystem(System):
         }
 
         # Set parameters
-        self.system_parameters = {"coupling": coupling_strength * 2 * np.pi}
+        self.system_parameters = {"coupling": coupling_strength}
 
         # Set methods to be updated
         self.update_methods = [self.set_operators, self.set_dissipators]
@@ -242,7 +242,7 @@ class DispersiveQubitResonatorSystem(System):
 
         # Calculate dispersive shifts
         # Multi qubit shifts
-        g_squared_matrix    = coupling ** 2 * qubit.charge_matrix.full() ** 2
+        g_squared_matrix    = coupling ** 2 * abs(qubit.charge_matrix.full()) ** 2
     
         omega_ij_matrix     = np.expand_dims(qubit.hamiltonian.diag(), 1) - np.expand_dims(qubit.hamiltonian.diag(), 0)
         

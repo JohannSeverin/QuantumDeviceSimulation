@@ -55,6 +55,9 @@ from devices.system import QubitResonatorSystem, DispersiveQubitResonatorSystem
 # Load Simulation Experiment
 from simulation.experiment import SchroedingerExperiment, LindbladExperiment
 
+# load Analysis tool
+from analysis.auto import BasicAuto
+
 ## Define devices 
 qubit = Transmon(
     EC = 15 / 25,  # h GHz
@@ -63,35 +66,35 @@ qubit = Transmon(
     levels = 4,
     ng = 0.0
 )
-resonator = Resonator(
-    6.02,
-    levels = 20,
-    kappa  = 0.020
-)
+
 
 # Coupling strength
-coupling_strength       = 0.25 * 2 * np.pi
+coupling_strength       = 0.1 * 2 * np.pi
 times                   = np.linspace(0, 100, 1000)
 
-
 ##### DISPERSIVE SIMULATIONS #####
-name = "dispersive_schroedinger"
+name = "resonator_freq_drive"
 experiment_name = os.path.join(experiment_path, name)
 
 # SCANNING PARAMETERS
-drive_frequency_scan = np.linspace(5.94, 6.00, 10)
-drive_amplitude_scan = np.linspace(0.00, 0.05, 5)
+drive_frequency_scan = np.linspace(5.95, 6.05, 30)
+resonator_freq_scan  = np.linspace(5.95, 6.05, 30)
+
+# Define Resonator
+resonator = Resonator(
+    resonator_freq_scan,
+    levels = 20,
+    kappa  = 0.020
+)
 
 # System
 dispersive_system = DispersiveQubitResonatorSystem(
     qubit,
     resonator,
     drive_frequency = drive_frequency_scan,
-    drive_amplitude = drive_amplitude_scan,
+    drive_amplitude = 0.02,
     coupling_strength = coupling_strength
 )
-
-print(f"dispersive shift: {dispersive_system.dispersive_shift() / 2 / np.pi}")
 
 # Experiment
 dispersive_schroedinger_experiment = SchroedingerExperiment(
@@ -106,79 +109,5 @@ dispersive_schroedinger_experiment = SchroedingerExperiment(
 
 results = dispersive_schroedinger_experiment.run()
 
-# Plot results
-fig, axes = plot_results(results)
-
-
-##### DISPERSIVE SIMULATIONS #####
-name = "dispersive_lindblad"
-experiment_name = os.path.join(experiment_path, name)
-
-# System
-dispersive_system = DispersiveQubitResonatorSystem(
-    qubit,
-    resonator,
-    drive_frequency = drive_frequency_scan,
-    drive_amplitude = drive_amplitude_scan,
-    coupling_strength = coupling_strength
-)
-
-# Experiment
-dispersive_lindblad_experiment = LindbladExperiment(
-    dispersive_system,
-    [dispersive_system.get_states(0, 0), dispersive_system.get_states(1, 0)],
-    times,
-    store_states = False,
-    only_store_final = True,
-    expectation_operators = [dispersive_system.photon_number_operator()],
-    save_path = experiment_name,
-)
-
-results = dispersive_lindblad_experiment.run()
-
-# Plot results
-plot_results(results)
-
-
-###### Full Schroedinger #####
-name = "full_schroedinger"
-experiment_name = os.path.join(experiment_path, name)
-
-times = np.linspace(0, 100, 2500)
-
-# Pulse
-readout_pulse = ReadoutCosinePulse(
-    frequency = drive_frequency_scan[::], # SCANNING THESE TWO PARAMETERS
-    amplitude = drive_amplitude_scan[::], # SCANNING THESE TWO PARAMETERS
-    phase     = 0.0
-)
-
-# System
-system = QubitResonatorSystem(
-    qubit,
-    resonator,
-    resonator_pulse     = readout_pulse,
-    coupling_strength   = coupling_strength
-)
-
-# Experiment
-full_schroedinger_experiment = SchroedingerExperiment(
-    system,
-    [system.get_states(0, 0), system.get_states(1, 0)],
-    times,
-    store_states = False,
-    only_store_final = True,
-    expectation_operators = [system.photon_number_operator()],
-    save_path = experiment_name,
-)
-
-
-results = full_schroedinger_experiment.run()
-
-#plt.plot(times, results["exp_vals"][:, 1].T, label = "Ground")
-
-
-# Plot results
-plot_results(results)
-
-
+analysis = BasicAuto(results)
+analysis.plot()
