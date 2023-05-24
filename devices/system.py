@@ -4,6 +4,9 @@ import qutip
 from qutip import tensor, basis, Qobj
 
 
+from devices.device import Device
+
+
 class System:
     """
     General system class.
@@ -100,7 +103,14 @@ class QubitResonatorSystem(System):
     coupling: float, the strength of the coupling between qubit and resonator given in h * GHz
     """
 
-    def __init__(self, qubit, resonator, resonator_pulse, coupling_strength):
+    def __init__(
+        self,
+        qubit: Device,
+        resonator: Device,
+        coupling_strength,
+        resonator_pulse=None,
+        qubit_pulse=None,
+    ):
         """
         A class to create a simple qubit-resonator system.
 
@@ -113,8 +123,11 @@ class QubitResonatorSystem(System):
         self.devices = {
             "qubit": qubit,
             "resonator": resonator,
-            "resonator_pulse": resonator_pulse,
         }
+        if resonator_pulse is not None:
+            self.devices["resonator_pulse"] = resonator_pulse
+        if qubit_pulse is not None:
+            self.devices["qubit_pulse"] = qubit_pulse
 
         # Set parameters
         self.system_parameters = {"coupling": coupling_strength}
@@ -146,8 +159,6 @@ class QubitResonatorSystem(System):
         # devices
         qubit = self.devices["qubit"]
         resonator = self.devices["resonator"]
-        resonator_pulse = self.devices["resonator_pulse"]
-
         # system parameters
         coupling = self.parameters["system"]["coupling"]
 
@@ -158,14 +169,26 @@ class QubitResonatorSystem(System):
             qubit.charge_matrix, resonator.a_dag + resonator.a
         )
 
-        self.hamiltonian = H_0_qubit + H_0_resonator + H_interaction
+        self.hamiltonian = [H_0_qubit + H_0_resonator + H_interaction]
 
         # Time dependent hamiltonian
-        resonator_coupling_operator = tensor(
-            qutip.qeye(qubit.levels), resonator.coupling_operator
-        )
+        if "resonator_pulse" in self.devices.keys():
+            resonator_pulse = self.devices["resonator_pulse"]
+            resonator_coupling_operator = tensor(
+                qutip.qeye(qubit.levels), resonator.coupling_operator
+            )
 
-        self.hamiltonian_t = [resonator_coupling_operator, resonator_pulse.pulse]
+            self.hamiltonian.append(
+                [resonator_coupling_operator, resonator_pulse.pulse]
+            )
+
+        if "qubit_pulse" in self.devices.keys():
+            qubit_pulse = self.devices["qubit_pulse"]
+            qubit_coupling_operator = tensor(
+                qubit.charge_matrix, qutip.qeye(resonator.levels)
+            )
+
+            self.hamiltonian.append([qubit_coupling_operator, qubit_pulse.pulse])
 
     def get_states(self, qubit_states=0, resonator_states=0):
         # Only integers

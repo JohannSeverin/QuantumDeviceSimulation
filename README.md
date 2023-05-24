@@ -23,7 +23,7 @@ The following classes are implemented:
   - [x] Resonator Class
   - [x] System Class (coupling the two together)
     - [x] Simpel system with qubit and resonator 
-  - [ ] Pulse Class
+  - [x] Pulses
     - [x] Cosine Square Pulse
 - [x] Create classes to model experiments using different simulation framework
   - [X] Simulation Class

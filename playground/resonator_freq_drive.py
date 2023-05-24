@@ -16,7 +16,7 @@ sys.path.append("..")
 
 # Load devices/system
 from devices.device import Resonator, Transmon
-from devices.pulses import ReadoutCosinePulse
+from devices.pulses import SquareCosinePulse
 from devices.system import QubitResonatorSystem, DispersiveQubitResonatorSystem
 
 # Load Simulation Experiment

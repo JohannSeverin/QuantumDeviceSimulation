@@ -72,3 +72,17 @@ def qfunc_plotter(results: SimulationResults, interval=10, resolution=100):
         axes[i].set_title(f"Q function for state {i}")
 
     return fig, axes
+
+
+from ipywidgets import interact, interactive, fixed, interact_manual
+
+
+def qfunc_with_sweeps_and_time(results: SimulationResults, interval=10, resolution=100):
+    time_variable = results.times if not results.only_store_final_state else None
+
+    for i in range(results.number_of_sweeps):
+        if results.number_of_sweeps > 1:
+            print(f"Plotting sweep {i+1}/{results.number_of_sweeps}")
+        qfunc_plotter(results.states[i], interval, resolution)
+
+    return None

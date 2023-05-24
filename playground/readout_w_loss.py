@@ -12,7 +12,6 @@ experiment_path = "/mnt/c/Users/johan/OneDrive/Skrivebord/QDS_data/" + experimen
 
 # Load devices/system
 from devices.device import Resonator, Transmon
-from devices.pulses import ReadoutCosinePulse
 from devices.system import DispersiveQubitResonatorSystem
 
 # Load Simulation Experiment

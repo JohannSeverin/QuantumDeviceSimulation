@@ -412,13 +412,7 @@ class SchroedingerExperiment(SimulationExperiment):
         """
         Simulate the system.
         """
-        H_0 = self.system.hamiltonian
-
-        if self.system.hamiltonian_t:
-            H = [H_0, self.system.hamiltonian_t]
-        else:
-            H = H_0
-
+        H = self.system.hamiltonian
         return qutip.sesolve(H, psi0=state, tlist=self.times, options=self.options)
 
 
@@ -436,13 +430,7 @@ class LindbladExperiment(SimulationExperiment):
         """
         Simulate the system.
         """
-        H_0 = self.system.hamiltonian
-
-        if self.system.hamiltonian_t:
-            H_1 = self.system.hamiltonian_t
-            H = [H_0, H_1]
-        else:
-            H = H_0
+        H = self.system.hamiltonian
 
         return qutip.mesolve(
             H,
