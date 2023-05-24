@@ -2,13 +2,13 @@
 ## Setup
 import numpy as np
 import matplotlib.pyplot as plt
-plt.style.use("../analysis/standard_plot_style.mplstyle")
+
+import sys, pickle, os 
+sys.path.append("..")
 
 experiment_name = "lindblad_test"
 experiment_path = "/mnt/c/Users/johan/OneDrive/Skrivebord/QDS_data/" + experiment_name
 
-import sys, pickle, os 
-sys.path.append("..")
 
 # Load devices/system
 from devices.device import Resonator, Transmon
@@ -17,6 +17,9 @@ from devices.system import DispersiveQubitResonatorSystem
 
 # Load Simulation Experiment
 from simulation.experiment import SchroedingerExperiment, LindbladExperiment
+
+# load Analysis tool
+from analysis.auto import AutomaticAnalysis
 
 
 ## Define devices 
@@ -58,49 +61,8 @@ experiment = SchroedingerExperiment(
     save_path = experiment_path,
 )
 
-# experiment = LindbladExperiment(
-#     system,
-#     [ground_state, excited_state],
-#     times,
-#     store_states = False,
-#     only_store_final = True,
-#     expectation_operators = [system.photon_number_operator()],
-#     save_path = experiment_path,
-# )
 
 results = experiment.run()
 
-# plt.plot(results["exp_vals"].reshape(-1, 100).T)
-
-# Numbers for plotting
-max_photon_number = np.max(results["exp_vals"])
-
-# Plot results
-fig, axes = plt.subplots(ncols = 2, figsize = (14, 6), sharey = True)
-
-from matplotlib.colors import LinearSegmentedColormap
-
-cmap_ground = LinearSegmentedColormap.from_list("ground", ["white", "C0"])
-
-img_ground  = axes[0].imshow(results["exp_vals"][..., 0].T, extent = [5.92, 6.00, 0.01, 0.20], 
-    aspect = "auto", origin = "lower", cmap = cmap_ground, vmin = 0, vmax = max_photon_number )
-img_excited = axes[1].imshow(results["exp_vals"][..., 1].T, extent = [5.92, 6.00, 0.01, 0.20], 
-    aspect = "auto", origin = "lower", cmap = cmap_ground, vmin = 0, vmax = max_photon_number )
-
-
-axes[0].set(
-    xlabel = "Frequency (GHz)",
-    ylabel = "Amplitude (a.u.)",
-    title = "Ground state"
-)
-
-axes[1].set(
-    xlabel = "Frequency (GHz)",
-    title = "Excited state"
-)
-
-fig.colorbar(img_ground, ax = axes[1], label = "Photon number")
-
-fig.tight_layout()
-
-
+analysis = AutomaticAnalysis(results)
+analysis.plot()

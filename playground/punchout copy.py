@@ -8,38 +8,38 @@ plt.style.use("../analysis/standard_plot_style.mplstyle")
 
 # Plotting funcs
 # Plot results
-def plot_results(results):
-    max_photon_number = np.max(results["exp_vals"])
-    extent = [results["sweep_list"][0].min(), results["sweep_list"][0].max(), results["sweep_list"][1].min(), results["sweep_list"][1].max()]
+# def plot_results(results):
+#     max_photon_number = np.max(results["exp_vals"])
+#     extent = [results["sweep_list"][0].min(), results["sweep_list"][0].max(), results["sweep_list"][1].min(), results["sweep_list"][1].max()]
 
-    fig, axes = plt.subplots(ncols = 2, figsize = (14, 6), sharey = True)
+#     fig, axes = plt.subplots(ncols = 2, figsize = (14, 6), sharey = True)
 
-    from matplotlib.colors import LinearSegmentedColormap
+#     from matplotlib.colors import LinearSegmentedColormap
 
-    cmap_ground = LinearSegmentedColormap.from_list("ground", ["white", "C0"])
+#     cmap_ground = LinearSegmentedColormap.from_list("ground", ["white", "C0"])
 
-    img_ground  = axes[0].imshow(results["exp_vals"][..., 0].T, extent = extent, 
-        aspect = "auto", origin = "lower", cmap = cmap_ground, vmin = 0, vmax = max_photon_number )
-    img_excited = axes[1].imshow(results["exp_vals"][..., 1].T, extent = extent, 
-        aspect = "auto", origin = "lower", cmap = cmap_ground, vmin = 0, vmax = max_photon_number )
+#     img_ground  = axes[0].imshow(results["exp_vals"][..., 0].T, extent = extent, 
+#         aspect = "auto", origin = "lower", cmap = cmap_ground, vmin = 0, vmax = max_photon_number )
+#     img_excited = axes[1].imshow(results["exp_vals"][..., 1].T, extent = extent, 
+#         aspect = "auto", origin = "lower", cmap = cmap_ground, vmin = 0, vmax = max_photon_number )
 
 
-    axes[0].set(
-        xlabel = "Frequency (GHz)",
-        ylabel = "Amplitude (a.u.)",
-        title = "Ground state"
-    )
+#     axes[0].set(
+#         xlabel = "Frequency (GHz)",
+#         ylabel = "Amplitude (a.u.)",
+#         title = "Ground state"
+#     )
 
-    axes[1].set(
-        xlabel = "Frequency (GHz)",
-        title = "Excited state"
-    )
+#     axes[1].set(
+#         xlabel = "Frequency (GHz)",
+#         title = "Excited state"
+#     )
 
-    fig.colorbar(img_ground, ax = axes[1], label = "Photon number")
+#     fig.colorbar(img_ground, ax = axes[1], label = "Photon number")
 
-    fig.tight_layout()
+#     fig.tight_layout()
 
-    return fig, axes
+#     return fig, axes
 
 # Paths and imports
 experiment_path = "/mnt/c/Users/johan/OneDrive/Skrivebord/QDS_data/punchout"
@@ -54,6 +54,9 @@ from devices.system import QubitResonatorSystem, DispersiveQubitResonatorSystem
 
 # Load Simulation Experiment
 from simulation.experiment import SchroedingerExperiment, LindbladExperiment
+
+# Analysis tools
+from analysis.auto import AutomaticAnalysis
 
 ## Define devices 
 qubit = Transmon(
@@ -107,7 +110,8 @@ dispersive_schroedinger_experiment = SchroedingerExperiment(
 results = dispersive_schroedinger_experiment.run()
 
 # Plot results
-fig, axes = plot_results(results)
+analysis_1 = AutomaticAnalysis(results)
+fig, axes = analysis_1.plot()
 
 
 ##### DISPERSIVE SIMULATIONS #####

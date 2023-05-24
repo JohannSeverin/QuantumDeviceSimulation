@@ -1,13 +1,14 @@
-from .analysis import Analysis, SweepAnalysis
+import sys
+
+sys.path.append("../")
+
+from simulation.experiment import SimulationResults
+from .analysis import sweep_analysis
 
 
-class AutomaticAnalysis(Analysis):
-
-    def __init__(self, results):
-        if results.number_of_expvals > 0:
-            if results.number_of_sweeps in [0, 1, 2] and results.only_store_final:
-                self.__class__ =  SweepAnalysis
-                self.__init__(results)
-        else:
-            raise NotImplementedError("No automatic analysis implemented for this type of results")
-
+def automatic_analysis(results: SimulationResults):
+    if results.number_of_expvals > 0:
+        if results.number_of_sweeps in [1, 2] and results.only_store_final:
+            return sweep_analysis(results)
+    else:
+        return None
