@@ -35,13 +35,13 @@ The following classes are implemented:
     - [x] Convert to parent class
     - [ ] Proper output data structure
   - [x] Unitary (for simulating the Schrodinger equation)
-  - [ ] Lindblad Simulations (for simulating the master equation) 
+  - [x] Lindblad Simulations (for simulating the master equation) 
   - [ ] Monte Carlo Simulations (might speed up Lindblad simulation for some cases)
   - [ ] Stochastic Simulations (for simulating backaction and measurement)
-- [ ] Analysis Module - Possible in Seperate folder and compatible with OPX_control data
-  - [ ] Simple plotting
-    - [ ] Plotting of results
-    - [ ] Plotting of sweeps
+- [x] Analysis Module - Possible in Seperate folder and compatible with OPX_control data
+  - [x] Simple plotting
+    - [x] Plotting of results
+    - [x] Plotting of sweeps
   - [ ] IQ plots
 - [ ] General Optimization
   - [ ] Enter reference frames in the System Class to simplify hamiltonian (maybe not possible in qutip since time dependence should be a scaler)

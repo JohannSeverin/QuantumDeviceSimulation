@@ -6,41 +6,6 @@ import matplotlib.pyplot as plt
 import os
 plt.style.use("../analysis/standard_plot_style.mplstyle")
 
-# Plotting funcs
-# Plot results
-def plot_results(results):
-    max_photon_number = np.max(results["exp_vals"])
-    extent = [results["sweep_list"][0].min(), results["sweep_list"][0].max(), results["sweep_list"][1].min(), results["sweep_list"][1].max()]
-
-    fig, axes = plt.subplots(ncols = 2, figsize = (14, 6), sharey = True)
-
-    from matplotlib.colors import LinearSegmentedColormap
-
-    cmap_ground = LinearSegmentedColormap.from_list("ground", ["white", "C0"])
-
-    img_ground  = axes[0].imshow(results["exp_vals"][..., 0].T, extent = extent, 
-        aspect = "auto", origin = "lower", cmap = cmap_ground, vmin = 0, vmax = max_photon_number )
-    img_excited = axes[1].imshow(results["exp_vals"][..., 1].T, extent = extent, 
-        aspect = "auto", origin = "lower", cmap = cmap_ground, vmin = 0, vmax = max_photon_number )
-
-
-    axes[0].set(
-        xlabel = "Frequency (GHz)",
-        ylabel = "Amplitude (a.u.)",
-        title = "Ground state"
-    )
-
-    axes[1].set(
-        xlabel = "Frequency (GHz)",
-        title = "Excited state"
-    )
-
-    fig.colorbar(img_ground, ax = axes[1], label = "Photon number")
-
-    fig.tight_layout()
-
-    return fig, axes
-
 # Paths and imports
 experiment_path = "/mnt/c/Users/johan/OneDrive/Skrivebord/QDS_data/punchout"
 
@@ -56,7 +21,7 @@ from devices.system import QubitResonatorSystem, DispersiveQubitResonatorSystem
 from simulation.experiment import SchroedingerExperiment, LindbladExperiment
 
 # load Analysis tool
-from analysis.auto import BasicAuto
+from analysis.auto import AutomaticAnalysis
 
 ## Define devices 
 qubit = Transmon(
@@ -77,8 +42,8 @@ name = "resonator_freq_drive"
 experiment_name = os.path.join(experiment_path, name)
 
 # SCANNING PARAMETERS
-drive_frequency_scan = np.linspace(5.95, 6.05, 30)
-resonator_freq_scan  = np.linspace(5.95, 6.05, 30)
+drive_frequency_scan = np.linspace(5.95, 6.05, 3)
+resonator_freq_scan  = np.linspace(5.95, 6.05, 3)
 
 # Define Resonator
 resonator = Resonator(
@@ -109,5 +74,5 @@ dispersive_schroedinger_experiment = SchroedingerExperiment(
 
 results = dispersive_schroedinger_experiment.run()
 
-analysis = BasicAuto(results)
+analysis = AutomaticAnalysis(results)
 analysis.plot()
