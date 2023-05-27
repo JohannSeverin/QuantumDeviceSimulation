@@ -6,7 +6,22 @@ from qutip import tensor, basis
 from devices.device import Device
 
 
-class SquareCosinePulse(Device):
+################### Abstract Pulse Class ###################
+class Pulse(Device):
+    def __init__(self):
+        """ """
+        self.parameters = {}
+        self.update_methods = []
+        super().__init__()
+
+    def set_pulse(self):
+        raise NotImplementedError(
+            "Pulse class is abstract. Implement set_pulse method."
+        )
+
+
+################### Pulses ###################
+class SquareCosinePulse(Pulse):
     def __init__(self, frequency, amplitude, start_time=0, duration=None, phase=0):
         self.parameters = {
             "frequency": frequency,

@@ -1,13 +1,18 @@
 import numpy as np
+from abc import ABC, abstractmethod
 
 import qutip
 from qutip import tensor, basis, Qobj
 
+import sys
 
+sys.path.append("../")
 from devices.device import Device
+from devices.pulses import Pulse
 
 
-class System:
+################### Abstract System Class ###################
+class System(ABC):
     """
     General system class.
     This handles primarily the parameters and sweep updates for the system.
@@ -91,7 +96,16 @@ class System:
         for update_func in self.update_methods:
             update_func()
 
+    @abstractmethod
+    def set_operators(self):
+        pass
 
+    @abstractmethod
+    def get_states(self):
+        pass
+
+
+################### Qubit-Resonator System Classes ###################
 class QubitResonatorSystem(System):
     """
     A class to create a simple qubit-resonator system.
@@ -107,9 +121,9 @@ class QubitResonatorSystem(System):
         self,
         qubit: Device,
         resonator: Device,
-        coupling_strength,
-        resonator_pulse=None,
-        qubit_pulse=None,
+        coupling_strength: float,
+        resonator_pulse: Pulse,
+        qubit_pulse: Pulse,
     ):
         """
         A class to create a simple qubit-resonator system.
@@ -387,3 +401,24 @@ class DispersiveQubitResonatorSystem(System):
             qutip.num(self.devices["qubit"].levels),
             qutip.qeye(self.devices["resonator"].levels),
         )
+
+
+################### TEST #####################
+if __name__ == "__main__":
+    import sys
+
+    sys.path.append("../")
+    from device import Transmon, Resonator
+
+    ## Define devices
+    qubit = Transmon(EC=15 / 25, EJ=15, n_cutoff=15, levels=4, ng=0.0)
+
+    resonator = Resonator(6.02, levels=15, kappa=0.050)
+
+    system = QubitResonatorSystem(
+        qubit,
+        resonator,
+        coupling_strength=2 * np.pi * 0.250,
+        resonator_pulse=None,
+        qubit_pulse=None,
+    )
