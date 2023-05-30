@@ -31,8 +31,9 @@ def sweep_analysis(results: SimulationResults, **kwargs):
 
 def plot_one_dimensional_sweep(results: SimulationResults, **kwargs):
     expectation_values = results.exp_vals
-    sweep_values = results.sweep_lists
-    sweep_param_names = np.array(results.sweep_params).flatten()
+    sweep_param = results.sweep_parameters[0]
+    sweep_values = results.sweep_dict[sweep_param[0]][sweep_param[1]]
+    sweep_param_name = results.exp_val_descriptions[0]
 
     fig, axes = plt.subplots(
         ncols=results.number_of_states,
@@ -54,7 +55,7 @@ def plot_one_dimensional_sweep(results: SimulationResults, **kwargs):
 
     for j in range(results.number_of_states):
         axes[0, j].set(title=f"State {j}")
-        axes[-1, j].set(xlabel=sweep_param_names[0])
+        axes[-1, j].set(xlabel=sweep_param_name)
 
     fig.tight_layout()
 
@@ -63,8 +64,13 @@ def plot_one_dimensional_sweep(results: SimulationResults, **kwargs):
 
 def plot_two_dimensional_sweep(results: SimulationResults, **kwargs):
     expectation_values = results.exp_vals
-    sweep_values = results.sweep_lists
-    sweep_param_names = np.array(results.sweep_params).flatten()
+    sweep_values = [
+        results.sweep_dict[results.sweep_parameters[i][0]][
+            results.sweep_parameters[i][1]
+        ]
+        for i in range(results.number_of_sweeps)
+    ]
+    sweep_param_names = results.exp_val_descriptions[:2]
 
     # Expects expectation values with shape (outer_sweep_param_len, inner_sweep_param_len, num_of_states, num_expectation_values)
     fig, axes = plt.subplots(

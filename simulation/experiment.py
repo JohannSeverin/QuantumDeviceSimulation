@@ -1,3 +1,6 @@
+import sys
+
+sys.path.append("..")
 import qutip
 import numpy as np
 from qutip import mesolve, Options
@@ -5,21 +8,120 @@ from tqdm import tqdm
 
 import pickle
 
+from abc import ABC, abstractmethod
 
-class SimulationExperiment:
+from collections import namedtuple
+
+from dataclasses import dataclass
+
+from devices.system import System
+from devices.device import Device
+
+from typing import Union, Iterable
+
+
+@dataclass()
+class SimulationResults:
+    number_of_sweeps: int
+    number_of_states: int
+    number_of_expvals: int
+    sweep_dict: dict[dict:list]
+    times: list[float]
+    store_states: bool
+    only_store_final: bool
+
+    save_path: str = None
+    dimensions: int = None
+    states: np.ndarray = None
+    exp_vals: np.ndarray = None
+
+    def __post_init__(self):
+        self.sweep_devices = list(self.sweep_dict.keys())
+        sweep_parameters = []
+        for device in self.sweep_devices:
+            for param in self.sweep_dict[device]:
+                sweep_parameters.append((device, param))
+        self.sweep_parameters = sweep_parameters
+
+        self.descriptions()
+
+    def save(self):
+        if self.save_path:
+            with open(self.save_path, "wb") as f:
+                pickle.dump(self, f)
+        else:
+            raise ValueError("No save path specified")
+
+    def load(self):
+        with open(self.save_path, "rb") as f:
+            return pickle.load(f)
+
+    def descriptions(self):
+        """
+        Create a description of the results.
+        """
+        self.state_descriptions = []
+        self.exp_val_descriptions = []
+
+        if self.store_states:
+            state_descriptions = ["state_dim1", "state_dim2"]
+
+            if self.number_of_sweeps > 1:
+                state_descriptions.append(self.sweep_parameter[0])
+                state_descriptions.append(self.sweep_parameter[1])
+
+            elif self.number_of_sweeps == 1:
+                state_descriptions.append(self.sweep_parameter[0])
+
+            if self.number_of_states > 1:
+                state_descriptions.append("initial_states")
+
+            if not self.only_store_final:
+                state_descriptions.append("time")
+
+            self.state_descriptions = state_descriptions
+
+        if self.number_of_expvals > 0:
+            exp_val_descriptions = []
+
+            if self.number_of_sweeps > 1:
+                exp_val_descriptions.append(
+                    f"{self.sweep_parameters[0][0]}/{self.sweep_parameters[0][1]}"
+                )
+                exp_val_descriptions.append(
+                    f"{self.sweep_parameters[1][0]}/{self.sweep_parameters[1][1]}"
+                )
+            elif self.number_of_sweeps == 1:
+                exp_val_descriptions.append(
+                    f"{self.sweep_parameters[0][0]}/{self.sweep_parameters[0][1]}"
+                )
+
+            if self.number_of_states > 1:
+                exp_val_descriptions.append("initial_states")
+
+            if not self.only_store_final:
+                exp_val_descriptions.append("time")
+
+            if self.number_of_expvals > 0:
+                exp_val_descriptions.append("exp_vals")
+
+            self.exp_val_descriptions = exp_val_descriptions
+
+
+class SimulationExperiment(ABC):
     """
     Parent class for simulation of experiments. This class handles data management, sweeps and data storage.
     """
 
     def __init__(
         self,
-        system,
-        times,
-        states,
-        expectation_operators=None,
-        store_states=False,
-        only_store_final=False,
-        save_path=None,
+        system: System,
+        times: Iterable,
+        states: Union[qutip.Qobj, Iterable],
+        expectation_operators: list[qutip.Qobj] = [],
+        store_states: bool = False,
+        only_store_final: bool = False,
+        save_path: str = None,
     ):
         # Load the variables into the class
         self.times = times
@@ -27,10 +129,10 @@ class SimulationExperiment:
 
         # Find dimensions of the experiment
         self.number_of_states = len(states) if isinstance(states, list) else 1
-        self.sweep_parameters = system.parameters_to_be_swept
+        self.sweep_parameters = system.sweep_parameters
 
         self.number_of_sweeps = sum(
-            [len(self.sweep_parameters[key]) for key in self.sweep_parameters.keys()]
+            [len(self.sweep_parameters[key]) for key in self.sweep_parameters]
         )
 
         # Check if the number of sweeps is supported
@@ -54,17 +156,17 @@ class SimulationExperiment:
             number_of_sweeps=self.number_of_sweeps,
             number_of_states=self.number_of_states,
             number_of_expvals=len(self.expectation_operators),
-            sweep_params=list(self.sweep_parameters.values()),
+            sweep_dict=self.sweep_parameters,
             times=self.times,
             store_states=self.store_states,
             only_store_final=self.only_store_final,
             save_path=self.save_path,
+            dimensions=system.dimensions,
         )
 
-        self.results.dimensions = system.dimensions
-
-    def simulate(self, state):
-        raise NotImplementedError("This method should be implemented in the subclass")
+    @abstractmethod
+    def simulate(self, state) -> qutip.solver.Result:
+        pass
 
     def run(self):
         """
@@ -156,24 +258,7 @@ class SimulationExperiment:
         """
         Sweeping over a single parameter
         """
-
-        for device, parameter in self.sweep_parameters.items():
-            # Only one parameter in this instance
-            sweep_param, sweep_device = parameter[0], device
-
-            if device == "system":
-                sweep_list = self.system.sweep_list[sweep_param]
-            else:
-                sweep_list = self.system.devices[device].sweep_list[sweep_param]
-
-            self.results.sweep_lists = sweep_list
-
-        # Create dict for results
-        results = {
-            "sweep_device": sweep_device,
-            "sweep_param": sweep_param,
-            "sweep_list": sweep_list,
-        }
+        results = {}
 
         # Create lists for the loop of states
         if self.store_states:
@@ -182,13 +267,12 @@ class SimulationExperiment:
         if self.expectation_operators:
             results["exp_vals"] = []
 
-        system_params = self.system.parameters
+        sweep_device = list(self.sweep_parameters.keys())[0]
+        sweep_param = list(self.sweep_parameters[sweep_device])[0]
+        sweep_list = self.sweep_parameters[sweep_device][sweep_param]
 
-        # Loop over values in sweep list
         for value in tqdm(sweep_list):
-            # Update system parameters
-            system_params[sweep_device][sweep_param] = value
-            self.system.update(system_params)
+            self.system.update({sweep_device: {sweep_param: value}})
 
             # Run single experiment with updated sweep param
             single_experiment_result = self.run_single_experiment()
@@ -216,25 +300,23 @@ class SimulationExperiment:
 
         # Split to tuple with: (device_key, parameter_name, sweep_list)
         # Combine into list.
-        sweep_tuples = []
-        for device, list_of_parameters in self.sweep_parameters.items():
-            for parameter in list_of_parameters:
-                if device == "system":
-                    sweep_list = self.system.sweep_list[parameter]
-                else:
-                    sweep_list = self.system.devices[device].sweep_list[parameter]
+        list_of_sweeps = []
+        sweep_tuple = namedtuple("sweep_tuple", ["device", "parameter", "sweep_list"])
 
-                sweep_tuples.append((device, parameter, sweep_list))
+        for device in self.sweep_parameters:
+            for parameter in self.sweep_parameters[device]:
+                sweep_list = self.sweep_parameters[device][parameter]
+                list_of_sweeps.append(sweep_tuple(device, parameter, sweep_list))
+        # results = {
+        #     "sweep_device": [t.device for t in list_of_sweeps],
 
-        results = {
-            "sweep_device": [t[0] for t in sweep_tuples],
-            "sweep_param": [t[1] for t in sweep_tuples],
-            "sweep_list": [t[2] for t in sweep_tuples],
-        }
+        #     "sweep_param": [t.parameter for t in list_of_sweeps],
+        #     "sweep_list": [t.sweep_list for t in list_of_sweeps],
+        # }
 
-        self.results.sweep_lists = [t[2] for t in sweep_tuples]
+        outer, inner = list_of_sweeps
 
-        outer, inner = sweep_tuples
+        results = {}
 
         # Create lists for the loop of states
         if self.store_states:
@@ -243,24 +325,25 @@ class SimulationExperiment:
         if self.expectation_operators:
             results["exp_vals"] = []
 
-        system_params = self.system.parameters
-
-        pbar = tqdm(total=len(outer[2]) * len(inner[2]), leave=True)
+        pbar = tqdm(total=len(outer.sweep_list) * len(inner.sweep_list), leave=True)
 
         # Loop outer sweep
-        for value_outer in outer[2]:
-            system_params[outer[0]][outer[1]] = value_outer
+        for value_outer in outer.sweep_list:
+            update_dict = {outer.device: {outer.parameter: value_outer}}
 
             inner_sweep_results = {
                 key: [] for key in results if key in ["states", "exp_vals"]
             }
 
             # Loop inner sweep
-            for value_inner in inner[2]:
-                system_params[inner[0]][inner[1]] = value_inner
+            for value_inner in inner.sweep_list:
+                if inner.device == outer.device:
+                    update_dict[inner.device][inner.parameter] = value_inner
+                else:
+                    update_dict[inner.device] = {inner.parameter: value_inner}
 
                 # Update system
-                self.system.update(system_params)
+                self.system.update(update_dict)
 
                 # Run experiment
                 single_experiment_result = self.run_single_experiment()
@@ -310,92 +393,7 @@ class SimulationExperiment:
         """
         Save results to file. Right now just pickling the results dict.
         """
-        with open(self.save_path, "wb") as f:
-            pickle.dump(results, f)
-
-
-class SimulationResults:
-    """
-    Container for results from a simulation experiment.
-    """
-
-    def __init__(
-        self,
-        number_of_sweeps,
-        number_of_states,
-        sweep_lists=None,
-        sweep_params=None,
-        store_states=False,
-        number_of_expvals=False,
-        only_store_final=False,
-        save_path=None,
-        **kwargs
-    ):
-        # Store meta stats for defining the result container
-        self.number_of_sweeps = number_of_sweeps
-        self.number_of_states = number_of_states
-        self.number_of_expvals = number_of_expvals
-        self.sweep_params = sweep_params
-        self.sweep_lists = sweep_lists
-        self.store_states = store_states
-        self.only_store_final = only_store_final
-        self.save_path = save_path
-        self.state_dimensions = {}
-
-        # Set additional attributes
-        for key, value in kwargs.items():
-            setattr(self, key, value)
-
-        # Create empty lists for storing the results
-        self.states = np.array([])
-        self.exp_vals = np.array([])
-
-        # Create list for describing the dimensions of the results
-        self.create_descriptions()
-
-    def create_descriptions(self):
-        """
-        Create a description of the results.
-        """
-        if self.store_states:
-            state_descriptions = ["state_dim1", "state_dim2"]
-            sweep_params = np.array(self.sweep_params).flatten()
-
-            if self.number_of_sweeps > 1:
-                state_descriptions.append(sweep_params[0])
-                state_descriptions.append(sweep_params[1])
-
-            elif self.number_of_sweeps == 1:
-                state_descriptions.append(sweep_params[0])
-
-            if self.number_of_states > 1:
-                state_descriptions.append("initial_states")
-
-            if not self.only_store_final:
-                state_descriptions.append("time")
-
-            self.state_descriptions = state_descriptions
-
-        if self.number_of_expvals > 0:
-            exp_val_descriptions = []
-            sweep_params = np.array(self.sweep_params).flatten()
-
-            if self.number_of_sweeps > 1:
-                exp_val_descriptions.append(sweep_params[0])
-                exp_val_descriptions.append(sweep_params[1])
-            elif self.number_of_sweeps == 1:
-                exp_val_descriptions.append(sweep_params[0])
-
-            if self.number_of_states > 1:
-                exp_val_descriptions.append("initial_states")
-
-            if not self.only_store_final:
-                exp_val_descriptions.append("time")
-
-            if self.number_of_expvals > 1:
-                exp_val_descriptions.append("exp_vals")
-
-            self.exp_val_descriptions = exp_val_descriptions
+        self.results.save()
 
 
 class SchroedingerExperiment(SimulationExperiment):

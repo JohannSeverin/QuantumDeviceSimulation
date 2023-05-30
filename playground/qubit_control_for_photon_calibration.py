@@ -29,14 +29,14 @@ resonator = Resonator(6.02, levels=20, kappa=0.050)
 
 resonator_drive = SquareCosinePulse(
     frequency=5.985,
-    amplitude=np.linspace(0.0, 0.2, 16),
+    amplitude=np.linspace(0.0, 0.2, 2),
     phase=0.0,
     start_time=0,
     duration=32,
 )
 
 qubit_drive = SquareCosinePulse(
-    frequency=7.86 + np.linspace(-0.4, 0.1, 16),
+    frequency=7.86 + np.linspace(-0.4, 0.1, 2),
     amplitude=0.2,
     phase=0.0,
     start_time=32,
