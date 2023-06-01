@@ -135,6 +135,78 @@ class System(ABC):
         pass
 
 
+################### Qubit System Classes ###################
+class QubitSystem(System):
+    def __init__(
+        self,
+        qubit: Device,
+        qubit_pulse: Pulse = None,
+    ):
+        """
+        A class to create a simple qubit-resonator system.
+
+        Parameters
+        ----
+        qubit: A qubit class, only Transmon exists at the moment
+        resonator: a resonator class
+        coupling: float, the strength of the coupling between qubit and resonator
+        """
+        self.devices = DeviceManager(
+            qubit=qubit,
+            qubit_pulse=qubit_pulse,
+        )
+
+        # Set methods to be updated
+        self.update_methods = [self.set_operators, self.set_dissipators]
+
+        # Set dimensions
+        self.dimensions = {"qubit": qubit.levels}
+
+        super().__init__()
+
+    def set_dissipators(self):
+        """
+        Set the dissipators of the system.
+        Currently the qubit and resonator are considered seperately.
+        """
+        qubit_dissipators = self.devices.qubit.dissipators
+        self.dissipators = qubit_dissipators
+
+    def set_operators(self):
+        """
+        Set operators. Basically just Hamiltonian object.
+        """
+        # devices
+        qubit = self.devices.qubit
+
+        # Time independent hamiltonian
+        H_0_qubit = qubit.hamiltonian
+
+        self.hamiltonian = [H_0_qubit]
+
+        # Time dependent hamiltonian
+        if self.devices.qubit_pulse:
+            qubit_pulse = self.devices.qubit_pulse
+            qubit_coupling_operator = qubit.charge_matrix
+
+            self.hamiltonian.append([qubit_coupling_operator, qubit_pulse.pulse])
+
+    def get_states(self, state: int = 0):
+        return basis(self.dimensions["qubit"], state)
+
+    def qubit_state_operator(self):
+        """
+        Operator to get expectation value of qubit state
+        """
+        return (qutip.num(self.devices.qubit.levels),)
+
+    def qubit_state_occupation_operator(self, state: int = 1):
+        """
+        Operator to get expectation value of a qubit in a given state
+        """
+        return qutip.ket2dm(basis(self.devices.qubit.levels, state))
+
+
 ################### Qubit-Resonator System Classes ###################
 class QubitResonatorSystem(System):
     """
