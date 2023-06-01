@@ -50,11 +50,11 @@ The following classes are implemented:
 - [ ] Tidy up 
   - [ ] Go throgh units
   - [ ] Take care of cython files which accumulates in simulation folder
-  - [ ] Make module loading without having to add to path
+  - [x] Make module loading without having to add to path
   - [ ] Add documentation
   - [ ] Rewrite parts to be more like OPX_control
 - [ ] Far-out Goals
-  - [ ] Single Qubit Control - to use for example with cloaking
+  - [x] Single Qubit Control - to use for example with cloaking
   - [ ] Implement ways to use PyTorch to simluate/train the system
   - [ ] Multi Qubit Systems
 
@@ -67,7 +67,7 @@ The following classes are implemented:
   - [ ] Stochastic Simulations
   - [ ] Qubit Control
 - [ ] Qubit cloaking
-  - [ ] Single Qubit Control
+  - [x] Single Qubit Control
   - [ ] More advanced readout pulses
 - [ ] Machine Learning Readout
   - [ ] Stochastic Simulations

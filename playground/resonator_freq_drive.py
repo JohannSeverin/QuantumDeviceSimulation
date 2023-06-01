@@ -24,6 +24,7 @@ from simulation.experiment import SchroedingerExperiment, LindbladExperiment
 
 # load Analysis tool
 from analysis.auto import automatic_analysis
+from analysis.analysis import sweep_analysis
 
 ## Define devices
 qubit = Transmon(EC=15 / 25, EJ=15, n_cutoff=15, levels=4, ng=0.0)  # h GHz
@@ -38,8 +39,8 @@ name = "resonator_freq_drive"
 experiment_name = os.path.join(experiment_path, name)
 
 # SCANNING PARAMETERS
-drive_frequency_scan = np.linspace(5.95, 6.05, 2)
-resonator_freq_scan = np.linspace(5.95, 6.05, 2)
+drive_frequency_scan = np.linspace(5.95, 6.05, 5)
+resonator_freq_scan = 6.00  #  np.linspace(5.95, 6.05, 5)
 
 # Define Resonator
 resonator = Resonator(resonator_freq_scan, levels=20, kappa=0.020)
@@ -54,13 +55,15 @@ dispersive_system = DispersiveQubitResonatorSystem(
 )
 
 # Experiment
-dispersive_schroedinger_experiment = LindbladExperiment(
+dispersive_schroedinger_experiment = SchroedingerExperiment(
     dispersive_system,
     [dispersive_system.get_states(0, 0), dispersive_system.get_states(1, 0)],
     times,
     store_states=True,
-    only_store_final=True,
-    expectation_operators=[dispersive_system.photon_number_operator()],
+    only_store_final=False,
+    expectation_operators=[
+        dispersive_system.photon_number_operator(),
+    ],
     save_path=experiment_name,
 )
 
