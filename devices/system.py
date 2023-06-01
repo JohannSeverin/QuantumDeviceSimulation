@@ -45,8 +45,9 @@ class System(ABC):
     def __init__(self):
         self.system_parameters_to_be_swept()
 
-        for param in self.sweep_parameters["system"]:
-            setattr(self, param, self.sweep_parameters["system"][param][0])
+        if "system" in self.sweep_parameters.keys():
+            for param in self.sweep_parameters["system"]:
+                setattr(self, param, self.sweep_parameters["system"][param][0])
 
         self.update()
 
@@ -115,7 +116,9 @@ class System(ABC):
 
         system_sweep_parameters = {key: self.get_parameter(key) for key in to_sweep}
 
-        self.sweep_parameters = {"system": system_sweep_parameters}
+        self.sweep_parameters = (
+            {"system": system_sweep_parameters} if self.should_be_swept else {}
+        )
 
         for device_key, device in self.devices:
             if device:
@@ -132,15 +135,17 @@ class QubitResonatorSystem(System):
     qubit: A qubit class, only Transmon exists at the moment.
     resonator: a resonator class
     coupling: float, the strength of the coupling between qubit and resonator given in h * GHz
+    reslator_pulse: A pulse class to interact with the resonator
+    qubit_pulse: A pulse class to interact with the qubit
     """
 
     def __init__(
         self,
         qubit: Device,
         resonator: Device,
-        coupling_strength,
-        resonator_pulse=None,
-        qubit_pulse=None,
+        coupling_strength: float,
+        resonator_pulse: Pulse = None,
+        qubit_pulse: Pulse = None,
     ):
         """
         A class to create a simple qubit-resonator system.
@@ -172,6 +177,10 @@ class QubitResonatorSystem(System):
         super().__init__()
 
     def set_dissipators(self):
+        """
+        Set the dissipators of the system.
+        Currently the qubit and resonator are considered seperately.
+        """
         qubit_dissipators = self.devices.qubit.dissipators
         qubit_dissipators = [
             tensor(qubit_dissipators[i], qutip.qeye(self.devices["resonator"].levels))
@@ -187,6 +196,9 @@ class QubitResonatorSystem(System):
         self.dissipators = qubit_dissipators + resonator_dissipators
 
     def set_operators(self):
+        """
+        Set operators. Basically just Hamiltonian object.
+        """
         # devices
         qubit = self.devices.qubit
         resonator = self.devices.resonator
@@ -221,7 +233,9 @@ class QubitResonatorSystem(System):
 
             self.hamiltonian.append([qubit_coupling_operator, qubit_pulse.pulse])
 
-    def get_states(self, qubit_states=0, resonator_states=0):
+    def get_states(
+        self, qubit_states=0, resonator_states=0
+    ):  # TODO: make this without so many if statements
         # Only integers
         if isinstance(qubit_states, int) and isinstance(resonator_states, int):
             qubit = basis(self.devices.qubit.levels, qubit_states)
@@ -260,16 +274,54 @@ class QubitResonatorSystem(System):
             ]
 
     def photon_number_operator(self):
+        """
+        Operator to get expectation value of photon count
+        """
         return tensor(
             qutip.qeye(self.devices.qubit.levels),
             self.devices.resonator.a_dag * self.devices.resonator.a,
         )
 
     def qubit_state_operator(self):
+        """
+        Operator to get expectation value of qubit state
+        """
         return tensor(
             qutip.num(self.devices.qubit.levels),
             qutip.qeye(self.devices.resonator.levels),
         )
+
+    def qubit_state_occupation_operator(self, state: int = 1):
+        """
+        Operator to get expectation value of a qubit in a given state
+        """
+        return tensor(
+            qutip.ket2dm(basis(self.devices.qubit.levels, state)),
+            qutip.qeye(self.devices.resonator.levels),
+        )
+
+
+def dispersive_shift(system: QubitResonatorSystem):
+    qubit = system.devices.qubit
+    frequency = 2 * np.pi * system.devices.resonator.frequency
+    coupling = system.coupling_strength
+
+    # Calculate dispersive shifts
+    # Multi qubit shifts
+    g_squared_matrix = coupling**2 * abs(qubit.charge_matrix.full()) ** 2
+
+    omega_ij_matrix = np.expand_dims(qubit.hamiltonian.diag(), 1) - np.expand_dims(
+        qubit.hamiltonian.diag(), 0
+    )
+
+    chi_matrix = g_squared_matrix * (
+        1 / (omega_ij_matrix - frequency) + 1 / (omega_ij_matrix + frequency)
+    )
+
+    # The dispersive shifts
+    dispersive_shifts = chi_matrix.sum(axis=1)
+
+    return dispersive_shifts
 
 
 class DispersiveQubitResonatorSystem(System):

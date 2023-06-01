@@ -14,8 +14,8 @@ class Device(ABC):
     Parent class for all devices. This is intended to take of common operations like sweeping parameters for an individual class and propagating them to the system.
     """
 
-    sweepable_parameters: list
-    update_methods: list
+    sweepable_parameters: list[str]
+    update_methods: list[callable]
 
     def __init__(self) -> None:
         """

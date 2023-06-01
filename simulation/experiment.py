@@ -30,6 +30,7 @@ class SimulationResults:
     store_states: bool
     only_store_final: bool
 
+    ntrajectories: int = None
     save_path: str = None
     dimensions: int = None
     states: np.ndarray = None
@@ -37,11 +38,10 @@ class SimulationResults:
 
     def __post_init__(self):
         self.sweep_devices = list(self.sweep_dict.keys())
-        sweep_parameters = []
+        self.sweep_parameters = []
         for device in self.sweep_devices:
             for param in self.sweep_dict[device]:
-                sweep_parameters.append((device, param))
-        self.sweep_parameters = sweep_parameters
+                self.sweep_parameters.append((device, param))
 
         self.descriptions()
 
@@ -67,14 +67,17 @@ class SimulationResults:
             state_descriptions = ["state_dim1", "state_dim2"]
 
             if self.number_of_sweeps > 1:
-                state_descriptions.append(self.sweep_parameter[0])
-                state_descriptions.append(self.sweep_parameter[1])
+                state_descriptions.append(self.sweep_parameters[0])
+                state_descriptions.append(self.sweep_parameters[1])
 
             elif self.number_of_sweeps == 1:
-                state_descriptions.append(self.sweep_parameter[0])
+                state_descriptions.append(self.sweep_parameters[0])
 
             if self.number_of_states > 1:
                 state_descriptions.append("initial_states")
+
+            if self.ntrajectories:
+                state_descriptions.append("trajectories")
 
             if not self.only_store_final:
                 state_descriptions.append("time")
@@ -99,11 +102,11 @@ class SimulationResults:
             if self.number_of_states > 1:
                 exp_val_descriptions.append("initial_states")
 
+            if self.number_of_expvals > 1:
+                exp_val_descriptions.append("exp_vals")
+
             if not self.only_store_final:
                 exp_val_descriptions.append("time")
-
-            if self.number_of_expvals > 0:
-                exp_val_descriptions.append("exp_vals")
 
             self.exp_val_descriptions = exp_val_descriptions
 
@@ -307,12 +310,6 @@ class SimulationExperiment(ABC):
             for parameter in self.sweep_parameters[device]:
                 sweep_list = self.sweep_parameters[device][parameter]
                 list_of_sweeps.append(sweep_tuple(device, parameter, sweep_list))
-        # results = {
-        #     "sweep_device": [t.device for t in list_of_sweeps],
-
-        #     "sweep_param": [t.parameter for t in list_of_sweeps],
-        #     "sweep_list": [t.sweep_list for t in list_of_sweeps],
-        # }
 
         outer, inner = list_of_sweeps
 
@@ -439,7 +436,7 @@ class LindbladExperiment(SimulationExperiment):
         )
 
 
-class StochasticExperiment(SimulationExperiment):
+class MonteCarloExperiment(SimulationExperiment):
     """
     This simulation class also takes dissipation into account but also measurement backaction.
     It is based on the stochastic master equation and can be combined with NTraj keyword to create multiple simulations
@@ -448,11 +445,52 @@ class StochasticExperiment(SimulationExperiment):
 
     def __init__(
         self,
-        system,
-        states,
-        times,
-        expectation_opreators=None,
-        store_states=False,
-        only_store_final=False,
+        system: System,
+        states: list[qutip.Qobj],
+        times: list[float],
+        ntraj: int = 1,
+        exp_val_method="average",
+        **kwargs,
     ):
-        raise NotImplementedError("This class is not yet implemented")
+        self.system = system
+        self.ntraj = ntraj
+        self.exp_val_method = exp_val_method
+
+        super().__init__(system, times, states, **kwargs)
+
+    def simulate(self, state):
+        """
+        Simulate the system.
+        """
+        H = self.system.hamiltonian
+
+        return qutip.mcsolve(
+            H,
+            rho0=state,
+            tlist=self.times,
+            c_ops=self.system.dissipators,
+            options=self.options,
+            ntraj=self.ntraj,
+        )
+
+    def exp_vals(self, list_of_states, operators):
+        """
+        Get the expectation values of an operator for a list of states
+        """
+        if len(operators) > 1:
+            list_of_expvals = []
+
+        for operator in operators:
+            if isinstance(operator, tuple):
+                op, dimension_to_keep = operator
+                states = [state.ptrace(dimension_to_keep) for state in list_of_states]
+            else:
+                states = list_of_states
+                op = operator
+
+            exp_vals = qutip.expect(op, states)
+
+            if len(operators) > 1:
+                list_of_expvals.append(exp_vals)
+            else:
+                return exp_vals
