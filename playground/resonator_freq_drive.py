@@ -16,15 +16,17 @@ sys.path.append("..")
 
 # Load devices/system
 from devices.device import Resonator, Transmon
-from devices.pulses import SquareCosinePulse
-from devices.system import QubitResonatorSystem, DispersiveQubitResonatorSystem
+from devices.system import DispersiveQubitResonatorSystem
 
 # Load Simulation Experiment
-from simulation.experiment import SchroedingerExperiment, LindbladExperiment
+from simulation.experiment import (
+    SchroedingerExperiment,
+    LindbladExperiment,
+    MonteCarloExperiment,
+)
 
 # load Analysis tool
 from analysis.auto import automatic_analysis
-from analysis.analysis import sweep_analysis
 
 ## Define devices
 qubit = Transmon(EC=15 / 25, EJ=15, n_cutoff=15, levels=4, ng=0.0)  # h GHz
@@ -35,15 +37,15 @@ coupling_strength = 0.1 * 2 * np.pi
 times = np.linspace(0, 100, 1000)
 
 ##### DISPERSIVE SIMULATIONS #####
-name = "resonator_freq_drive"
+name = "stochastic_tests"
 experiment_name = os.path.join(experiment_path, name)
 
 # SCANNING PARAMETERS
-drive_frequency_scan = np.linspace(5.95, 6.05, 5)
+drive_frequency_scan = 6.00
 resonator_freq_scan = 6.00  #  np.linspace(5.95, 6.05, 5)
 
 # Define Resonator
-resonator = Resonator(resonator_freq_scan, levels=20, kappa=0.020)
+resonator = Resonator(resonator_freq_scan, levels=20, kappa=0.02)
 
 # System
 dispersive_system = DispersiveQubitResonatorSystem(
@@ -55,18 +57,21 @@ dispersive_system = DispersiveQubitResonatorSystem(
 )
 
 # Experiment
-dispersive_schroedinger_experiment = SchroedingerExperiment(
+dispersive_schroedinger_experiment = MonteCarloExperiment(
     dispersive_system,
     [dispersive_system.get_states(0, 0), dispersive_system.get_states(1, 0)],
     times,
     store_states=True,
-    only_store_final=False,
+    only_store_final=True,
     expectation_operators=[
+        dispersive_system.photon_number_operator(),
         dispersive_system.photon_number_operator(),
     ],
     save_path=experiment_name,
+    ntraj=10,
+    exp_val_method="average",
 )
 
 results = dispersive_schroedinger_experiment.run()
 
-analysis = automatic_analysis(results)
+# analysis = automatic_analysis(results)

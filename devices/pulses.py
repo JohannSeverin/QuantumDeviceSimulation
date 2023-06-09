@@ -116,4 +116,40 @@ class SquareCosinePulse(Device):
                 else:
                     return 0
 
-            self.pulse_I = pulse
+        self.pulse = pulse
+
+
+class CloakedPulse(Device):
+    def __init__(
+        self, frequency, amplitude, scale=1, start_time=0, duration=None, phase=0
+    ):
+        # Set parameters
+        self.frequency = frequency
+        self.amplitude = amplitude
+        self.phase = phase
+        self.duration = duration
+        self.start_time = start_time
+        self.scale = scale
+
+        # To parent class
+        self.sweepable_parameters = [
+            "frequency",
+            "amplitude",
+            "phase",
+            "duration",
+            "start_time",
+            "scale",
+        ]
+        self.update_methods = [self.set_pulse]
+
+        super().__init__()
+
+    def set_pulse(self):
+        def pulse(t, _):
+            if t >= self.start_time and t < self.start_time + self.duration:
+                envelope = self.amplitude * np.tanh(self.scale * (t - self.start_time))
+                return envelope * np.cos(2 * np.pi * self.frequency * t + self.phase)
+            else:
+                return 0
+
+        self.pulse = pulse

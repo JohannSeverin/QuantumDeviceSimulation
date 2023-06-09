@@ -85,6 +85,52 @@ class Device(ABC):
 
 
 ################## Qubits ##################
+class SimpleQubit(Device):
+    """
+    A three level qubit with anhormicity and T1.
+    """
+
+    def __init__(
+        self,
+        frequency: float,
+        anharmonicity: float = None,
+        T1: float = 0.0,
+    ) -> None:
+        # Load Parameters
+
+        self.frequency = frequency
+        self.levels = 3
+        self.T1 = T1
+
+        # Define sweepable parameters
+        self.sweepable_parameters = ["frequency", "anharmonicity", "T1"]
+
+        # Define the update methods
+        self.update_methods = [self.set_operators, self.set_dissipators]
+
+        super().__init__()
+
+    def set_operators(self) -> None:
+        frequencies = np.array([0, self.frequency, 2 * self.frequency])
+
+        self.hamiltonian = qutip.Qobj(diags(frequencies))
+
+        self.charge_matrix = qutip.create(self.levels) + qutip.destroy(self.levels)
+
+    def set_dissipators(self) -> None:
+        """
+        Set the dissipators used for dynamics. Everything changeable will be in the self.parameters dictionary.
+        """
+        # Unpack parameters
+        T1 = self.T1
+
+        # Set the dissipator
+        if T1 > 0:
+            self.dissipators = [np.sqrt(1 / T1) * qutip.destroy(self.levels)]
+        else:
+            self.dissipators = []
+
+
 class Transmon(Device):
     def __init__(
         self,

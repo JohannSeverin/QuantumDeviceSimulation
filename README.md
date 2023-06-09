@@ -33,10 +33,10 @@ The following classes are implemented:
       - [x] 2d sweep
     - [x] Handel output results
     - [x] Convert to parent class
-    - [ ] Proper output data structure
+    - [x] Proper output data structure
   - [x] Unitary (for simulating the Schrodinger equation)
   - [x] Lindblad Simulations (for simulating the master equation) 
-  - [ ] Monte Carlo Simulations (might speed up Lindblad simulation for some cases)
+  - [x] Monte Carlo Simulations (might speed up Lindblad simulation for some cases)
   - [ ] Stochastic Simulations (for simulating backaction and measurement)
 - [x] Analysis Module - Possible in Seperate folder and compatible with OPX_control data
   - [x] Simple plotting

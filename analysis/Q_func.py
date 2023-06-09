@@ -5,14 +5,23 @@ from simulation.experiment import SimulationResults
 
 from scipy.special import factorial
 import numpy as np
-from qutip import qfunc
+from qutip import qfunc, ket2dm
 import matplotlib.pyplot as plt
 
+from matplotlib.colors import LinearSegmentedColormap
 
-def Q_of_rho(rhos, x, y):
+colormaps = [
+    LinearSegmentedColormap.from_list("mycmap", ["white", f"C{i}"]) for i in range(10)
+]
+
+
+def Q_of_rho(rhos, x, y, rotate=0):
     n_cutoff = rhos.shape[-1]
 
     alphas = x + 1j * y
+
+    if rotate != 0:
+        alphas *= np.exp(-1j * rotate * np.pi * 2)
 
     normalization = np.exp(-alphas * alphas.conj() / 2)
 
@@ -25,13 +34,6 @@ def Q_of_rho(rhos, x, y):
 
 
 def qfunc_plotter(results: SimulationResults, interval=10, resolution=100):
-    if results.store_states == False:
-        raise NotImplementedError("QFuncPlotter only implemented when storing states")
-
-    # TODO - implement sweeps as interactive sliders
-    if results.number_of_sweeps > 0:
-        raise NotImplementedError("QFuncPlotter only implemented for no sweeps")
-
     states = results.states
 
     # Increase size if dimensions are 1
@@ -67,7 +69,7 @@ def qfunc_plotter(results: SimulationResults, interval=10, resolution=100):
 
     for i in range(results.number_of_states):
         axes[i].imshow(
-            Qs[i], extent=[-interval, interval, -interval, interval], cmap="jet"
+            Qs[i], extent=[-interval, interval, -interval, interval], cmap=colormaps[i]
         )
         axes[i].set_title(f"Q function for state {i}")
 
@@ -77,12 +79,82 @@ def qfunc_plotter(results: SimulationResults, interval=10, resolution=100):
 from ipywidgets import interact, interactive, fixed, interact_manual
 
 
-def qfunc_with_sweeps_and_time(results: SimulationResults, interval=10, resolution=100):
-    time_variable = results.times if not results.only_store_final_state else None
+def qfunc_plotter_with_time_slider(
+    results: SimulationResults,
+    interval=10,
+    resolution=100,
+    time_steps=1,
+    demod_frequency=0,
+):
+    if results.only_store_final:
+        return qfunc_plotter(results, interval, resolution)
 
-    for i in range(results.number_of_sweeps):
-        if results.number_of_sweeps > 1:
-            print(f"Plotting sweep {i+1}/{results.number_of_sweeps}")
-        qfunc_plotter(results.states[i], interval, resolution)
+    qubit_dims, resonator_dims = (
+        results.dimensions["qubit"],
+        results.dimensions["resonator"],
+    )
 
-    return None
+    states = results.states
+
+    if states.shape[-1] == states.shape[-2] == qubit_dims * resonator_dims:
+        pass
+    else:
+        states = np.array(
+            [
+                np.kron(states[i][t], states[i][t])
+                for i in range(results.number_of_states)
+                for t in range(len(results.times))
+            ]
+        )
+    # Increase size if dimensions are 1
+    if results.number_of_states == 1:
+        states = np.expand_dims(states, axis=-4)
+
+    # DO A PTRACE
+
+    reshaped = np.reshape(
+        states,
+        (
+            results.number_of_states,
+            len(results.times),
+            qubit_dims,
+            resonator_dims,
+            qubit_dims,
+            resonator_dims,
+        ),
+    )
+    ptraced = np.einsum("tijklm -> tikm", reshaped)
+
+    def plotter(time):
+        idx = np.argmin(np.abs(results.times - time))
+        x = np.linspace(-interval, interval, resolution)
+        y = np.linspace(-interval, interval, resolution)
+
+        X, Y = np.meshgrid(x, y)
+
+        Qs = Q_of_rho(
+            ptraced[:, idx, ...],
+            X.flatten(),
+            Y.flatten(),
+            rotate=demod_frequency * results.times[idx],
+        ).reshape(-1, resolution, resolution)
+
+        # Setup figure
+        fig, axes = plt.subplots(ncols=results.number_of_states, figsize=(10, 10))
+
+        if results.number_of_states == 1:
+            axes = np.array([axes])
+
+        # Create the plots
+
+        for i in range(results.number_of_states):
+            axes[i].imshow(
+                Qs[i],
+                extent=[-interval, interval, -interval, interval],
+                cmap=colormaps[i],
+            )
+            axes[i].set_title(f"Q function for state {i}")
+
+        return fig, axes
+
+    return interact(plotter, time=(results.times[0], results.times[-1], time_steps))

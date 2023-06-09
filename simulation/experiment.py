@@ -20,6 +20,7 @@ from devices.device import Device
 from typing import Union, Iterable
 
 
+############### Base Classes for Simulation ###############
 @dataclass()
 class SimulationResults:
     number_of_sweeps: int
@@ -120,7 +121,7 @@ class SimulationExperiment(ABC):
         self,
         system: System,
         times: Iterable,
-        states: Union[qutip.Qobj, Iterable],
+        states: list[qutip.Qobj],
         expectation_operators: list[qutip.Qobj] = [],
         store_states: bool = False,
         only_store_final: bool = False,
@@ -143,7 +144,12 @@ class SimulationExperiment(ABC):
             raise NotImplementedError("Only 0, 1 or 2 sweeps are supported")
 
         # Output data handling
-        self.expectation_operators = expectation_operators
+        if isinstance(expectation_operators, dict):
+            self.expectation_operators = list(expectation_operators.values())
+            self.expectation_names = list(expectation_operators.keys())
+        else:
+            self.expectation_operators = expectation_operators
+
         self.store_states = store_states
         self.only_store_final = only_store_final
 
@@ -393,6 +399,7 @@ class SimulationExperiment(ABC):
         self.results.save()
 
 
+############### Deterministic Evolutions ###############
 class SchroedingerExperiment(SimulationExperiment):
     """
     Experiment for solving the Schroedinger equation for a quantum device system.
@@ -436,6 +443,12 @@ class LindbladExperiment(SimulationExperiment):
         )
 
 
+############### Stochastic Evolutions ###############
+from qutip import serial_map, parallel_map
+from pathos.multiprocessing import ProcessPool as Pool
+from copy import copy
+
+
 class MonteCarloExperiment(SimulationExperiment):
     """
     This simulation class also takes dissipation into account but also measurement backaction.
@@ -458,39 +471,156 @@ class MonteCarloExperiment(SimulationExperiment):
 
         super().__init__(system, times, states, **kwargs)
 
+    # def simulate(self, state):
+    #     """
+    #     Simulate the system.
+    #     """
+    #     H = self.system.hamiltonian
+
+    #     return qutip.mcsolve(
+    #         H,
+    #         psi0=state,
+    #         tlist=self.times,
+    #         c_ops=self.system.dissipators,
+    #         options=self.options,
+    #         ntraj=self.ntraj,
+    #         progress_bar=None,
+    #         map_func=serial_map,
+    #     ).states
+
     def simulate(self, state):
         """
         Simulate the system.
         """
         H = self.system.hamiltonian
 
-        return qutip.mcsolve(
-            H,
-            rho0=state,
-            tlist=self.times,
-            c_ops=self.system.dissipators,
-            options=self.options,
-            ntraj=self.ntraj,
-        )
+        def f(_):
+            return qutip.mcsolve(
+                H,
+                psi0=state,
+                tlist=self.times,
+                c_ops=self.system.dissipators,
+                options=self.options,
+                ntraj=1,
+                progress_bar=None,
+                map_func=serial_map,
+            ).states
+
+        with Pool() as p:
+            results = p.amap(f, range(self.ntraj))
+
+        return np.array(results.get())
+
+    def run_single_experiment(self):
+        """
+        Run a single experiment if no sweeps are required
+        """
+        results = {}
+
+        if self.number_of_states == 1:
+            state = (
+                self.states if isinstance(self.states, qutip.Qobj) else self.states[0]
+            )
+            simulation_result = self.simulate(state)
+
+            if self.only_store_final:
+                simulation_result = np.array(simulation_result)[..., -1]
+
+            if self.store_states:
+                results["states"] = simulation_result
+
+            if self.expectation_operators:
+                results["exp_vals"] = self.exp_vals(
+                    simulation_result, self.expectation_operators
+                )
+
+        else:
+            # Create lists for the loop of states
+            if self.store_states:
+                results["states"] = []
+
+            if self.expectation_operators:
+                results["exp_vals"] = []
+
+            for state in self.states:
+                # Simulate
+                simulation_result = self.simulate(state)
+
+                if self.only_store_final:
+                    simulation_result.states = np.array(simulation_result)[..., -1]
+
+                # Store in dicts
+                if self.store_states:
+                    results["states"].append(simulation_result)
+
+                if self.expectation_operators:
+                    results["exp_vals"].append(
+                        self.exp_vals(simulation_result, self.expectation_operators)
+                    )
+
+            # Convert to numpy arrays
+            if self.store_states:
+                results["states"] = np.array(results["states"])
+
+            if self.expectation_operators:
+                results["exp_vals"] = np.array(results["exp_vals"])
+
+            return results
+
+        return results
 
     def exp_vals(self, list_of_states, operators):
         """
         Get the expectation values of an operator for a list of states
         """
+        # Save longer list
         if len(operators) > 1:
             list_of_expvals = []
 
         for operator in operators:
-            if isinstance(operator, tuple):
-                op, dimension_to_keep = operator
-                states = [state.ptrace(dimension_to_keep) for state in list_of_states]
-            else:
-                states = list_of_states
-                op = operator
+            # What to do if we only have the last state
+            if self.only_store_final:
+                # reshape
+                # list_of_states = np.array(list_of_states).reshape(self.ntraj, -1)
+                # If tuple, we reduce the dimension of the state
+                if isinstance(operator, tuple):
+                    op, dimension_to_keep = operator
+                    for index, state in np.ndenumerate(list_of_states):
+                        list_of_states[index] = state.ptrace(dimension_to_keep)
+                else:
+                    op = operator
 
-            exp_vals = qutip.expect(op, states)
+                # Calculate expectation values
+                exp_vals = qutip.expect(op, list_of_states.flatten()).reshape(
+                    self.ntraj
+                )
+                if self.exp_val_method == "average":
+                    exp_vals = np.mean(exp_vals, axis=-1)
+
+            # If we store time, we need to keep an extra index
+            else:
+                # list_of_states = np.array(list_of_states).reshape(
+                #     self.ntraj, len(self.times)
+                # )
+                # If tuple, we reduce the dimension of the state
+                if isinstance(operator, tuple):
+                    op, dimension_to_keep = operator
+                    for index, state in np.ndenumerate(list_of_states):
+                        list_of_states[index] = state.ptrace(dimension_to_keep)
+                else:
+                    op = operator
+
+                # Calculate expectation values
+                exp_vals = qutip.expect(op, list_of_states.flatten()).reshape(
+                    self.ntraj, len(self.times)
+                )
+
+                if self.exp_val_method == "average":
+                    exp_vals = np.mean(exp_vals, axis=-2)
 
             if len(operators) > 1:
                 list_of_expvals.append(exp_vals)
             else:
                 return exp_vals
+
+        return np.array(list_of_expvals)
