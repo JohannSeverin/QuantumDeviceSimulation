@@ -121,24 +121,32 @@ class SquareCosinePulse(Device):
 
 class CloakedPulse(Device):
     def __init__(
-        self, frequency, amplitude, scale=1, start_time=0, duration=None, phase=0
+        self,
+        frequency,
+        resonator_frequency,
+        kappa,
+        phase=0,
+        amplitude=1,
+        start_time=0,
+        duration=None,
     ):
-        # Set parameters
+        # Set parameters:
         self.frequency = frequency
+        self.resonator_frequency = resonator_frequency
+        self.kappa = kappa
         self.amplitude = amplitude
-        self.phase = phase
-        self.duration = duration
         self.start_time = start_time
-        self.scale = scale
+        self.duration = duration
+        self.phase = phase
 
         # To parent class
         self.sweepable_parameters = [
             "frequency",
+            "kappa",
             "amplitude",
-            "phase",
-            "duration",
             "start_time",
-            "scale",
+            "duration",
+            "phase",
         ]
         self.update_methods = [self.set_pulse]
 
@@ -146,10 +154,79 @@ class CloakedPulse(Device):
 
     def set_pulse(self):
         def pulse(t, _):
-            if t >= self.start_time and t < self.start_time + self.duration:
-                envelope = self.amplitude * np.tanh(self.scale * (t - self.start_time))
-                return envelope * np.cos(2 * np.pi * self.frequency * t + self.phase)
+            if t >= self.start_time and t <= self.start_time + self.duration:
+                return self.amplitude * (
+                    np.cos(2 * np.pi * self.frequency * t - self.phase)
+                    - np.cos(2 * np.pi * self.resonator_frequency * t - self.phase)
+                    * np.exp(-self.kappa * t / 2)
+                )
+
             else:
                 return 0
+
+        self.pulse = pulse
+
+
+class CloakedPulse_with_x_pulse(Device):
+    def __init__(
+        self,
+        frequency,
+        resonator_frequency,
+        kappa,
+        phase=0,
+        amplitude=1,
+        start_time=0,
+        duration=None,
+        x_frequency=None,
+        x_duration=None,
+        x_ampltiude=None,
+    ):
+        # Set parameters:
+        self.frequency = frequency
+        self.resonator_frequency = resonator_frequency
+        self.kappa = kappa
+        self.amplitude = amplitude
+        self.start_time = start_time
+        self.duration = duration
+        self.phase = phase
+        self.x_frequency = x_frequency
+        self.x_duration = x_duration
+        self.x_ampltiude = x_ampltiude
+
+        # To parent class
+        self.sweepable_parameters = [
+            "frequency",
+            "kappa",
+            "amplitude",
+            "start_time",
+            "duration",
+            "phase",
+            "x_frequency",
+            "x_duration",
+            "x_ampltiude",
+        ]
+        self.update_methods = [self.set_pulse]
+
+        super().__init__()
+
+    def set_pulse(self):
+        def pulse(t, _):
+            if t >= self.start_time and t <= self.start_time + self.duration:
+                pulse_t = self.amplitude * (
+                    np.cos(2 * np.pi * self.frequency * t - self.phase)
+                    - np.cos(2 * np.pi * self.resonator_frequency * t - self.phase)
+                    * np.exp(-self.kappa * t / 2)
+                )
+
+            else:
+                pulse_t = 0
+
+            if (
+                t >= self.start_time + self.duration - self.x_duration
+                and t <= self.duration
+            ):
+                pulse_t += self.x_ampltiude * np.cos(2 * np.pi * self.x_frequency * t)
+
+            return pulse_t
 
         self.pulse = pulse

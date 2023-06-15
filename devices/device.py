@@ -255,7 +255,7 @@ class Resonator(Device):
         self.hamiltonian = 2 * np.pi * frequency * (self.a_dag * self.a + 1 / 2)
 
         # Coupling to the drive
-        self.coupling_operator = self.a + self.a_dag
+        self.coupling_operator = 1j * (self.a_dag - self.a)
 
     def set_dissipators(self) -> None:
         kappa = self.kappa

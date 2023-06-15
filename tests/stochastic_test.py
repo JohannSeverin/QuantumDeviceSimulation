@@ -53,7 +53,7 @@ dispersive_schroedinger_experiment = MonteCarloExperiment(
     only_store_final=True,
     expectation_operators=[system.qubit_state_occupation_operator(1)],
     save_path=experiment_name,
-    ntraj=100,
+    ntraj=1,
     # exp_val_method="average",
 )
 

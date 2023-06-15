@@ -37,7 +37,7 @@ qubit_drive = GaussianPulse(
     amplitude=2.4 * np.sqrt(2),  # * np.linspace(0.75, 1.25, 10),
     phase=np.pi / 4,
     start_time=0,
-    duration=32,
+    duration=16,
     sigma=4,
     drag_alpha=0.5 / 0.96542265872240614,  # 0.5 / 0.96542265872240614,
 )
