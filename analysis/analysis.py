@@ -2,9 +2,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os, sys
 
-plt.style.use("../analysis/standard_plot_style.mplstyle")
+this_dir = os.path.dirname(os.path.abspath(__file__))
+plt.style.use(os.path.join(this_dir, "standard_plot_style.mplstyle"))
 
-sys.path.append("../")
 from simulation.experiment import SimulationResults
 
 

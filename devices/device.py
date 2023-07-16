@@ -99,8 +99,13 @@ class SimpleQubit(Device):
         # Load Parameters
 
         self.frequency = frequency
-        self.levels = 3
         self.T1 = T1
+        self.anharmonicity = anharmonicity 
+
+        if self.anharmonicity:
+            self.levels = 3
+        else:
+            self.levels = 2
 
         # Define sweepable parameters
         self.sweepable_parameters = ["frequency", "anharmonicity", "T1"]
@@ -111,9 +116,12 @@ class SimpleQubit(Device):
         super().__init__()
 
     def set_operators(self) -> None:
-        frequencies = np.array([0, self.frequency, 2 * self.frequency])
+        if self.levels == 2:
+            frequencies = np.diag((-1, 1)) * self.frequency / 2
+        elif self.levels == 3:
+            frequencies = np.diag([0, self.frequency, 2 * self.frequency - self.anharmonicity])
 
-        self.hamiltonian = qutip.Qobj(diags(frequencies))
+        self.hamiltonian = qutip.Qobj(2 * np.pi * frequencies)
 
         self.charge_matrix = qutip.create(self.levels) + qutip.destroy(self.levels)
 
